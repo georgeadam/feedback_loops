@@ -60,7 +60,7 @@ def update_model_online_noise(model, x, y, num_updates, rate):
     return new_model
 
 
-def update_model_online_constant_trust(model, x, y, num_updates, trust, physician_fpr):
+def update_model_constant_trust(model, x, y, num_updates, trust, physician_fpr):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
@@ -89,6 +89,89 @@ def update_model_online_constant_trust(model, x, y, num_updates, trust, physicia
         target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
 
         new_model.partial_fit(sub_x, target, classes)
+        
+    return new_model
+
+
+def update_model_conditional_trust(model, x, y, num_updates, initial_trust, physician_fpr):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y)) / float(num_updates)
+
+    classes = np.unique(y)
+    trust = initial_trust
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y[idx_start: idx_end])
+
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        model_pred = copy.deepcopy(sub_y)
+        model_pred[model_fp_idx] = 1
+        
+        physician_pred = copy.deepcopy(sub_y)        
+        neg_idx = np.where(physician_pred == 0)[0]
+        physician_fp_idx = np.random.choice(neg_idx, int(physician_fpr * len(sub_y)))
+        physician_pred[physician_fp_idx] = 1
+        
+        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
+        
+        target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
+
+        new_model.partial_fit(sub_x, target, classes)
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        
+        fpr = float(len(model_fp_idx)) / float(len(sub_y))
+        
+        trust = 1 - 2 * fpr
+        
+    return new_model
+
+
+def update_model_monotonically_increasing_trust(model, x, y, num_updates, initial_trust, physician_fpr):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y)) / float(num_updates)
+
+    classes = np.unique(y)
+    
+    trusts = np.linspace(initial_trust, 1.0, num_updates)
+
+    for i in range(num_updates):
+        trust = trusts[i]
+        
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y[idx_start: idx_end])
+
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        model_pred = copy.deepcopy(sub_y)
+        model_pred[model_fp_idx] = 1
+        
+        physician_pred = copy.deepcopy(sub_y)        
+        neg_idx = np.where(physician_pred == 0)[0]
+        physician_fp_idx = np.random.choice(neg_idx, int(physician_fpr * len(sub_y)))
+        physician_pred[physician_fp_idx] = 1
+        
+        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
+        
+        target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
+
+        new_model.partial_fit(sub_x, target, classes)
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        
+        fpr = float(len(model_fp_idx)) / float(len(sub_y))
+        
+        trust = 1 - 2 * fpr
         
     return new_model
 
