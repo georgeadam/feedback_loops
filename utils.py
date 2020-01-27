@@ -176,6 +176,51 @@ def update_model_monotonically_increasing_trust(model, x, y, num_updates, initia
     return new_model
 
 
+def update_model_feedback_with_training(model, x_train, y_train, x_update, y_update, num_updates):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y_update)) / float(num_updates)
+
+    classes = np.unique(y_update)
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        sub_pred = new_model.predict(sub_x)
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
+
+        new_model.partial_fit(np.concatenate((sub_x, x_train)), np.concatenate((sub_y, y_train)), classes)
+        
+    return new_model
+
+
+def update_model_fnr(model, x, y, num_updates):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y)) / float(num_updates)
+
+    classes = np.unique(y)
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y[idx_start: idx_end])
+
+        sub_pred = new_model.predict(sub_x)
+        fn_idx = np.logical_and(sub_y == 1, sub_pred == 0)
+        sub_y[fn_idx] = 0
+
+        new_model.partial_fit(sub_x, sub_y, classes)
+        
+    return new_model
+
 def perturb_labels_fp(y, rate=0.05):
     y_copy = copy.deepcopy(y)
     n_pert = int(len(y_copy) * rate)
