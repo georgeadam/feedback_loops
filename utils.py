@@ -12,19 +12,21 @@ def eval_model(y, y_pred):
     return tn / samples, fp / samples, fn / samples, tp / samples
 
 
-def update_model_online_feedback(model, x, y, num_updates):
+def update_model_feedback(model, x_update, y_update, x_test, y_test, num_updates, intermediate=False):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
-    size = float(len(y)) / float(num_updates)
+    size = float(len(y_update)) / float(num_updates)
 
-    classes = np.unique(y)
+    classes = np.unique(y_update)
+    
+    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
 
     for i in range(num_updates):
         idx_start = int(size * i)
         idx_end = int(size * (i + 1))
-        sub_x = x[idx_start: idx_end, :]
-        sub_y = copy.deepcopy(y[idx_start: idx_end])
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
 
         sub_pred = new_model.predict(sub_x)
         fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
@@ -32,10 +34,18 @@ def update_model_online_feedback(model, x, y, num_updates):
 
         new_model.partial_fit(sub_x, sub_y, classes)
         
-    return new_model
+        if intermediate:
+            new_pred = new_model.predict(x_test)
+            updated_tnr, updated_fpr, updated_fnr, updated_tpr = eval_model(y_test, new_pred)
+            rates["fpr"].append(updated_fpr)
+            rates["tpr"].append(updated_tpr)
+            rates["fnr"].append(updated_fnr)
+            rates["tnr"].append(updated_tnr)
+        
+    return new_model, rates
 
 
-def update_model_online_noise(model, x, y, num_updates, rate):
+def update_model_noise(model, x, y, num_updates, rate):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
@@ -169,9 +179,42 @@ def update_model_monotonically_increasing_trust(model, x, y, num_updates, initia
         model_pred = new_model.predict(sub_x)
         model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
         
-        fpr = float(len(model_fp_idx)) / float(len(sub_y))
+    return new_model
+
+
+def update_model_increasing_trust(model, x, y, num_updates, trusts, physician_fpr):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y)) / float(num_updates)
+
+    classes = np.unique(y)
+
+    for i in range(num_updates):
+        trust = trusts[i]
         
-        trust = 1 - 2 * fpr
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y[idx_start: idx_end])
+
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        model_pred = copy.deepcopy(sub_y)
+        model_pred[model_fp_idx] = 1
+        
+        physician_pred = copy.deepcopy(sub_y)        
+        neg_idx = np.where(physician_pred == 0)[0]
+        physician_fp_idx = np.random.choice(neg_idx, int(physician_fpr * len(sub_y)))
+        physician_pred[physician_fp_idx] = 1
+        
+        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
+        
+        target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
+
+        new_model.partial_fit(sub_x, target, classes)
+        model_pred = new_model.predict(sub_x)
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
         
     return new_model
 
@@ -199,27 +242,38 @@ def update_model_feedback_with_training(model, x_train, y_train, x_update, y_upd
     return new_model
 
 
-def update_model_fnr(model, x, y, num_updates):
+def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_update, y_update, num_updates):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
-    size = float(len(y)) / float(num_updates)
+    size = float(len(y_update)) / float(num_updates)
 
-    classes = np.unique(y)
+    classes = np.unique(y_update)
+    
+    cumulative_x = None
+    cumulative_y = None
 
     for i in range(num_updates):
         idx_start = int(size * i)
         idx_end = int(size * (i + 1))
-        sub_x = x[idx_start: idx_end, :]
-        sub_y = copy.deepcopy(y[idx_start: idx_end])
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
 
         sub_pred = new_model.predict(sub_x)
-        fn_idx = np.logical_and(sub_y == 1, sub_pred == 0)
-        sub_y[fn_idx] = 0
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
 
-        new_model.partial_fit(sub_x, sub_y, classes)
+        if cumulative_x is None:
+            cumulative_x = sub_x
+            cumulative_y = sub_y
+        else:
+            cumulative_x = np.concatenate((cumulative_x, sub_x))
+            cumulative_y = np.concatenate((cumulative_y, sub_y))
+        
+        new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), classes)
         
     return new_model
+
 
 def perturb_labels_fp(y, rate=0.05):
     y_copy = copy.deepcopy(y)
