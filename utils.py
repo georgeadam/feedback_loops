@@ -219,13 +219,14 @@ def update_model_increasing_trust(model, x, y, num_updates, trusts, physician_fp
     return new_model
 
 
-def update_model_feedback_with_training(model, x_train, y_train, x_update, y_update, num_updates):
+def update_model_feedback_with_training(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates, intermediate=False):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
     size = float(len(y_update)) / float(num_updates)
 
     classes = np.unique(y_update)
+    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -239,16 +240,65 @@ def update_model_feedback_with_training(model, x_train, y_train, x_update, y_upd
 
         new_model.partial_fit(np.concatenate((sub_x, x_train)), np.concatenate((sub_y, y_train)), classes)
         
-    return new_model
+        if intermediate:
+            new_pred = new_model.predict(x_test)
+            updated_tnr, updated_fpr, updated_fnr, updated_tpr = eval_model(y_test, new_pred)
+            rates["fpr"].append(updated_fpr)
+            rates["tpr"].append(updated_tpr)
+            rates["fnr"].append(updated_fnr)
+            rates["tnr"].append(updated_tnr)
+        
+    return new_model, rates
 
 
-def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_update, y_update, num_updates):
+def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates, intermediate=False):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
     
     size = float(len(y_update)) / float(num_updates)
 
     classes = np.unique(y_update)
+    
+    cumulative_x = None
+    cumulative_y = None
+    
+    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        sub_pred = new_model.predict(sub_x)
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
+
+        if cumulative_x is None:
+            cumulative_x = sub_x
+            cumulative_y = sub_y
+        else:
+            cumulative_x = np.concatenate((cumulative_x, sub_x))
+            cumulative_y = np.concatenate((cumulative_y, sub_y))
+        
+        new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), classes)
+        
+        if intermediate:
+            new_pred = new_model.predict(x_test)
+            updated_tnr, updated_fpr, updated_fnr, updated_tpr = eval_model(y_test, new_pred)
+            rates["fpr"].append(updated_fpr)
+            rates["tpr"].append(updated_tpr)
+            rates["fnr"].append(updated_fnr)
+            rates["tnr"].append(updated_tnr)
+        
+    return new_model, rates
+
+
+def update_model_full_fit(model, x_train, y_train, x_update, y_update, num_updates):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y_update)) / float(num_updates)
     
     cumulative_x = None
     cumulative_y = None
@@ -270,7 +320,7 @@ def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_up
             cumulative_x = np.concatenate((cumulative_x, sub_x))
             cumulative_y = np.concatenate((cumulative_y, sub_y))
         
-        new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), classes)
+        new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)))
         
     return new_model
 
