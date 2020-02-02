@@ -2,6 +2,7 @@ import copy
 import numpy as np
 from sklearn.metrics import confusion_matrix
 
+from scipy.stats import multivariate_normal
 
 def eval_model(y, y_pred):
     c_matrix = confusion_matrix(y, y_pred)
@@ -10,6 +11,35 @@ def eval_model(y, y_pred):
     samples = float(len(y_pred))
     
     return tn / samples, fp / samples, fn / samples, tp / samples
+
+
+def update_model_no_feedback(model, x_update, y_update, x_test, y_test, num_updates, intermediate=False):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y_update)) / float(num_updates)
+
+    classes = np.unique(y_update)
+    
+    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        new_model.partial_fit(sub_x, sub_y, classes)
+        
+        if intermediate:
+            new_pred = new_model.predict(x_test)
+            updated_tnr, updated_fpr, updated_fnr, updated_tpr = eval_model(y_test, new_pred)
+            rates["fpr"].append(updated_fpr)
+            rates["tpr"].append(updated_tpr)
+            rates["fnr"].append(updated_fnr)
+            rates["tnr"].append(updated_tnr)
+        
+    return new_model, rates
 
 
 def update_model_feedback(model, x_update, y_update, x_test, y_test, num_updates, intermediate=False):
@@ -325,6 +355,30 @@ def update_model_full_fit(model, x_train, y_train, x_update, y_update, num_updat
     return new_model
 
 
+def update_model_feedback_linear_trend(model, x_update, y_update, num_updates, offset):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+    
+    size = float(len(y_update)) / float(num_updates)
+
+    classes = np.unique(y_update)
+    offsets = np.linspace(0, offset, num_updates)
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :] + offsets[i]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        sub_pred = new_model.predict(sub_x)
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
+
+        new_model.partial_fit(sub_x, sub_y, classes)
+        
+    return new_model
+
+
 def perturb_labels_fp(y, rate=0.05):
     y_copy = copy.deepcopy(y)
     n_pert = int(len(y_copy) * rate)
@@ -339,7 +393,7 @@ def perturb_labels_fp(y, rate=0.05):
     return y_copy
 
 
-def make_gaussian_data(m0, m1, s0, s1, n, p0, p1, features=2, flip=0.0):
+def make_gaussian_data(m0, m1, s0, s1, n, p0, p1, features=2):
     neg_samples = np.random.multivariate_normal(m0 * np.ones(features), s0 * np.eye(features), int(n * p0))
     pos_samples = np.random.multivariate_normal(m1 * np.ones(features), s1 * np.eye(features), int(n * p1))
     
@@ -351,3 +405,25 @@ def make_gaussian_data(m0, m1, s0, s1, n, p0, p1, features=2, flip=0.0):
     y = y[idx]
     
     return x, y
+
+
+def make_trend_gaussian_data(m0, m1, s0, s1, n, features=2, uniform_range=[-3, 3]):
+    x = np.random.uniform(uniform_range[0], uniform_range[1], (n, features))
+    
+    pdf0 = multivariate_normal(mean=np.ones(features) * m0, cov=np.eye(features) * s0).pdf(x)
+    pdf1 = multivariate_normal(mean=np.ones(features) * m1, cov=np.eye(features) * s1).pdf(x)
+    
+    p_y = pdf1 / (pdf0 + pdf1)
+    
+    y = []
+    
+    for i in range(len(x)):
+        y.append(np.random.choice([0, 1], p=[1 - p_y[i], p_y[i]]))
+    
+    y = np.array(y)
+    idx = np.random.choice(len(x), len(x), replace=False)
+    x = x[idx]
+    y = y[idx]
+    
+    return x, y
+
