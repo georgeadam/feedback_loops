@@ -15,6 +15,8 @@ def get_data_fn(args):
         return generate_gaussian_dataset(args.m0, args.m1, args.s0, args.s1, args.p0, args.p1)
     elif args.data_type == "sklearn":
         return generate_sklearn_make_classification_dataset
+    elif args.data_type == "mimic":
+        return generate_mimic_dataset()
 
 
 def perturb_labels_fp(y, rate=0.05):
@@ -167,7 +169,9 @@ def load_mimiciii_data():
     return dataset
 
 
-def generate_mimic_dataset(data):
+def generate_mimic_dataset():
+    data = load_mimiciii_data()
+
     float_cols = []
 
     for i, column in enumerate(data["X"].columns):
@@ -179,7 +183,11 @@ def generate_mimic_dataset(data):
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
 
-    def wrapped(n_train, n_update, n_test):
+    def wrapped(n_train, n_update, n_test, **kwargs):
+        n_train = int(len(y) * n_train)
+        n_update = int(len(y) * n_update)
+        n_test = int(len(y) * n_test)
+
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test, stratify=y)
         x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 

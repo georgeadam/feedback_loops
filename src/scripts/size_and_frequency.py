@@ -22,12 +22,12 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn"], type=str)
+parser.add_argument("--data-type", default="mimic", choices=["gaussian", "sklearn", "mimic"], type=str)
 parser.add_argument("--seeds", default=3, type=int)
 parser.add_argument("--model", default="lr", type=str)
 
-parser.add_argument("--n-train", default=1000, type=int)
-parser.add_argument("--n-test", default=50000, type=int)
+parser.add_argument("--n-train", default=1000, type=float)
+parser.add_argument("--n-test", default=50000, type=float)
 parser.add_argument("--num-features", default=2, type=int)
 parser.add_argument("--num-updates", default=500, type=int)
 
@@ -41,7 +41,7 @@ parser.add_argument("--p1", default=0.5, type=float)
 parser.add_argument("--sizes", default=[500, 1000, 2500, 5000, 10000], nargs="+")
 parser.add_argument("--noise", default=0.0, type=float)
 
-def train_update_loop(n_train, n_test, sizes, num_features, updates, data_fn, model_fn, noise, seeds):
+def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, data_fn, noise, seeds):
     seeds = np.arange(seeds)
     results = {size: {"fpr": [], "fnr": [], "tpr": [], "tnr": []} for size in sizes}
 
@@ -52,7 +52,7 @@ def train_update_loop(n_train, n_test, sizes, num_features, updates, data_fn, mo
             x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, size, n_test, num_features=num_features,
                                                                            noise=noise)
 
-            model = model_fn()
+            model = model_fn(num_features=num_features)
             model.fit(x_train, y_train)
 
             y_pred = model.predict(x_test)
@@ -68,7 +68,7 @@ def train_update_loop(n_train, n_test, sizes, num_features, updates, data_fn, mo
     return results
 
 
-def gold_standard_loop(n_train, n_update, n_test, num_features, data_fn, model_fn, noise, seeds):
+def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, data_fn, noise, seeds):
     seeds = np.arange(seeds)
     results = {"fpr": [], "fnr": [], "tpr": [], "tnr": []}
 
@@ -78,7 +78,7 @@ def gold_standard_loop(n_train, n_update, n_test, num_features, data_fn, model_f
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
                                                                        noise=noise, num_features=num_features)
 
-        model = model_fn()
+        model = model_fn(num_features=num_features)
         model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
 
         y_pred = model.predict(x_test)
@@ -150,12 +150,11 @@ def main(args):
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
     model_fn = get_model_fn(args.model)
-
     data_fn = get_data_fn(args)
 
-    gold_standard_fprs = gold_standard_loop(args.n_train, args.sizes[-1], args.n_test, args.num_features, data_fn, model_fn,
+    gold_standard_fprs = gold_standard_loop(model_fn, args.n_train, args.sizes[-1], args.n_test, args.num_features, data_fn,
                                             args.noise, args.seeds)
-    results = train_update_loop(args.n_train, args.n_test, args.sizes, args.num_features, args.num_updates, data_fn, model_fn, args.noise,
+    results = train_update_loop(model_fn, args.n_train, args.n_test, args.sizes, args.num_features, args.num_updates, data_fn, args.noise,
                                                  args.seeds)
 
     data = results_to_dataframe(results, args.sizes, args.num_updates, args.seeds)

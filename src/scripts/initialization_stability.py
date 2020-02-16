@@ -11,6 +11,7 @@ import importlib
 from src.models.sklearn import lr
 from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
+from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback, update_model_feedback_with_training
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -21,12 +22,13 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn"], type=str)
+parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
 parser.add_argument("--seeds", default=1000, type=int)
+parser.add_argument("--model", default="lr", type=str)
 
-parser.add_argument("--n-train", default=10000, type=int)
-parser.add_argument("--n-update", default=10000, type=int)
-parser.add_argument("--n-test", default=10000, type=int)
+parser.add_argument("--n-train", default=10000, type=float)
+parser.add_argument("--n-update", default=10000, type=float)
+parser.add_argument("--n-test", default=10000, type=float)
 parser.add_argument("--num-features", default=2, type=int)
 parser.add_argument("--num-updates", default=100, type=int)
 
@@ -39,7 +41,7 @@ parser.add_argument("--p1", default=0.5, type=float)
 
 
 
-def train_update_loop(n_train, n_update, n_test, num_features, num_updates, data_fn, seeds):
+def train_update_loop(model_fn, n_train, n_update, n_test, num_features, num_updates, data_fn, seeds):
     seeds = np.arange(seeds)
     initial_fprs = []
     updated_fprs = []
@@ -50,7 +52,7 @@ def train_update_loop(n_train, n_update, n_test, num_features, num_updates, data
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
                                                                        num_features=num_features)
 
-        model = lr()
+        model = model_fn(num_features=num_features)
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test)
@@ -112,7 +114,9 @@ def main(args):
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
     data_fn = get_data_fn(args)
-    initial_fprs, updated_fprs = train_update_loop(args.n_train, args.n_update, args.n_test, args.num_features,
+    model_fn = get_model_fn(args.model)
+
+    initial_fprs, updated_fprs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, args.num_features,
                                                args.num_updates, data_fn, args.seeds)
     fprs_boxplot = {
         "type": (["initial"] * len(initial_fprs)) + (["updated"] * len(updated_fprs)),

@@ -13,6 +13,7 @@ import importlib
 from src.models.sklearn import lr
 from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
+from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback_with_training, update_model_feedback_with_training_cumulative
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -24,12 +25,13 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn"], type=str)
+parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
 parser.add_argument("--seeds", default=100, type=int)
+parser.add_argument("--model", default="lr", type=str)
 
-parser.add_argument("--n-train", default=1000, type=int)
-parser.add_argument("--n-update", default=1000, type=int)
-parser.add_argument("--n-test", default=5000, type=int)
+parser.add_argument("--n-train", default=1000, type=float)
+parser.add_argument("--n-update", default=1000, type=float)
+parser.add_argument("--n-test", default=5000, type=float)
 parser.add_argument("--num-features", default=2, type=int)
 parser.add_argument("--num-updates", default=100, type=int)
 
@@ -44,7 +46,7 @@ parser.add_argument("--train-percentages", default=[0.0, 0.01, 0.1, 0.2, 0.3, 0.
                     nargs="+")
 
 
-def train_update_loop(n_train, n_update, n_test, update_fn, num_updates, num_features, train_percentages, data_fn, seeds):
+def train_update_loop(model_fn, n_train, n_update, n_test, update_fn, num_updates, num_features, train_percentages, data_fn, seeds):
     seeds = np.arange(seeds)
     updated_results = {train_percentage: {"fpr": [], "tpr": [], "fnr": [], "tnr": []} for train_percentage in
                        train_percentages}
@@ -55,7 +57,7 @@ def train_update_loop(n_train, n_update, n_test, update_fn, num_updates, num_fea
 
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test, num_features=num_features)
 
-        model = lr()
+        model = model_fn(num_features=num_features)
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test)
@@ -127,8 +129,10 @@ def main(args):
     results_dir = os.environ.get("HISTORY_EFFECT_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
+    model_fn = get_model_fn(args.model)
+
     data_fn = get_data_fn(args)
-    results_non_cumulative = train_update_loop(args.n_train, args.n_update, args.n_test, update_model_feedback_with_training,
+    results_non_cumulative = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, update_model_feedback_with_training,
                                                args.num_updates, args.num_features, args.train_percentages, data_fn, args.seeds)
 
     data_non_cumulative = results_to_dataframe(results_non_cumulative, args.train_percentages, args.seeds)
@@ -144,7 +148,7 @@ def main(args):
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    results_cumulative = train_update_loop(args.n_train, args.n_update, args.n_test,
+    results_cumulative = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test,
                                            update_model_feedback_with_training_cumulative,
                                            args.num_updates, args.num_features, args.train_percentages, data_fn,
                                            args.seeds)

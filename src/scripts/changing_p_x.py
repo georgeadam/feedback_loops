@@ -13,6 +13,7 @@ import importlib
 from src.models.sklearn import lr, linear_svm
 from src.utils.data import make_trend_gaussian_data
 from src.utils.metrics import eval_model
+from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback, update_model_feedback_linear_trend
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -24,6 +25,7 @@ from settings import ROOT_DIR
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian"], type=str)
 parser.add_argument("--seeds", default=100, type=int)
+parser.add_argument("--model", default="lr", type=str)
 
 parser.add_argument("--n-train", default=10000, type=int)
 parser.add_argument("--n-update", default=10000, type=int)
@@ -36,12 +38,13 @@ parser.add_argument("--m1", default=1.0, type=float)
 parser.add_argument("--s0", default=1.0, type=float)
 parser.add_argument("--s1", default=1.0, type=float)
 
-
 parser.add_argument("--range-min", default=-5, type=float)
 parser.add_argument("--range-max", default=5, type=float)
 
+parser.add_argument("--offset", default=3.0, type=float)
 
-def train_update_loop(n_train, n_update, n_test, num_updates, m0, m1, s0, s1, n_features, uniform_range,
+
+def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, s0, s1, num_features, uniform_range,
                       offset, seeds):
     seeds = np.arange(seeds)
 
@@ -51,21 +54,20 @@ def train_update_loop(n_train, n_update, n_test, num_updates, m0, m1, s0, s1, n_
         np.random.seed(seed)
         print(seed)
 
-        x_train, y_train = make_trend_gaussian_data(m0, m1, s0, s1, n_train, n_features, noise=0.0,
+        x_train, y_train = make_trend_gaussian_data(m0, m1, s0, s1, n_train, num_features, noise=0.0,
                                                     uniform_range=uniform_range)
-        x_update, y_update = make_trend_gaussian_data(m0, m1, s0, s1, n_update, n_features, noise=0.0,
+        x_update, y_update = make_trend_gaussian_data(m0, m1, s0, s1, n_update, num_features, noise=0.0,
                                                       uniform_range=uniform_range)
-        x_test_orig, y_test_orig = make_trend_gaussian_data(m0, m1, s0, s1, n_test, n_features, noise=0.0,
+        x_test_orig, y_test_orig = make_trend_gaussian_data(m0, m1, s0, s1, n_test, num_features, noise=0.0,
                                                             uniform_range=uniform_range)
-        x_test_shifted, y_test_shifted = make_trend_gaussian_data(m0, m1, s0, s1, n_test, n_features, noise=0.0,
+        x_test_shifted, y_test_shifted = make_trend_gaussian_data(m0, m1, s0, s1, n_test, num_features, noise=0.0,
                                                                   uniform_range=[uniform_range[0] + offset,
                                                                                  uniform_range[1]])
 
-        model = lr()
+        model = model_fn(num_features=num_features)
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test_orig)
-        initial_orig_tnr, initial_orig_fpr, initial_orig_fnr, initial_orig_tpr = eval_model(y_test_orig, y_pred)
 
         y_pred = model.predict(x_test_shifted)
         initial_shifted_tnr, initial_shifted_fpr, initial_shifted_fnr, initial_shifted_tpr = eval_model(y_test_shifted,
@@ -122,7 +124,7 @@ def plot(data, labels, num_updates, plot_path):
     ax.set_xlim([0, num_updates])
 
     legend = ax.legend(title="Update Type", title_fontsize=30, loc="upper right", labels=labels,
-                       bbox_to_anchor=(1.3, 1), borderaxespad=0., labelspacing=2.0)
+                       bbox_to_anchor=(1.4, 1), borderaxespad=0., labelspacing=2.0)
     legend.texts[0].set_size(20)
 
     fig.show()
@@ -141,16 +143,18 @@ def main(args):
     results_dir = os.environ.get("CHANGING_P_X_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
+    model_fn = get_model_fn(args.model)
+
     uniform_range = [args.range_min, args.range_max]
-    offset = 3
-    results_positive = train_update_loop(args.n_train, args.n_update, args.n_test, args.num_updates,
+    offset = args.offset
+    results_positive = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, args.num_updates,
                                                             args.m0, args.m1, args.s0, args.s1, args.num_features,
                                                             uniform_range, offset, args.seeds)
 
     data_positive = results_to_dataframe(results_positive, "pos")
 
-    offset = -3
-    results_negative = train_update_loop(args.n_train, args.n_update, args.n_test, args.num_updates,
+    offset = - args.offset
+    results_negative = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, args.num_updates,
                                          args.m0, args.m1, args.s0, args.s1, args.num_features,
                                          uniform_range, offset, args.seeds)
     data_negative = results_to_dataframe(results_negative, "neg")
