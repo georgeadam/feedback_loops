@@ -13,6 +13,7 @@ from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback
+from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
 
@@ -47,7 +48,7 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, features
 
     for seed in seeds:
         for num_features in features:
-            np.random.seed(seed)
+            set_seed(seed)
 
             x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
                                                                            num_features=num_features)

@@ -6,22 +6,24 @@ import seaborn as sns
 sns.set()
 import matplotlib.pyplot as plt
 
-from src.utils.data import generate_mimic_dataset, load_mimiciii_data
+from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage
 from src.utils.update import update_model_feedback
+from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
 
 from argparse import ArgumentParser
 from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
+from sklearn.metrics import roc_auc_score
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2"], type=str)
 parser.add_argument("--seeds", default=3, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--model", default="nn", type=str)
 
 parser.add_argument("--n-train", default=0.4, type=percentage)
 parser.add_argument("--n-update", default=0.4, type=percentage)
@@ -37,13 +39,16 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
 
     rates = {name: [] for name in names}
 
+    initial_aucs = []
+    updated_aucs = []
+
     for seed in seeds:
         print(seed)
-        np.random.seed(seed)
+        set_seed(seed)
 
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test)
 
-        model = model_fn()
+        model = model_fn(num_features=x_train.shape[1])
         model.fit(x_train, y_train)
         y_prob = model.predict_proba(x_train)
 
@@ -52,28 +57,36 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
         initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
+        initial_auc = roc_auc_score(y_test, y_prob[:, 1])
 
         new_model, temp_rates = update_model_feedback(model, x_update, y_update, x_test, y_test, num_updates,
                                                       intermediate=True, threshold=threshold)
+
+        y_prob = new_model.predict_proba(x_test)
+        updated_auc = roc_auc_score(y_test, y_prob[:, 1])
 
         rates["fpr"].append([initial_fpr] + temp_rates["fpr"])
         rates["tpr"].append([initial_tpr] + temp_rates["tpr"])
         rates["fnr"].append([initial_fnr] + temp_rates["fnr"])
         rates["tnr"].append([initial_tnr] + temp_rates["tnr"])
+        initial_aucs.append(initial_auc)
+        updated_aucs.append(updated_auc)
 
-    return rates
+    return rates, initial_aucs, updated_aucs
 
 
 def gold_standard_loop(model_fn, n_train, n_update, n_test, names, desired_fpr, data_fn, seeds):
     seeds = np.arange(seeds)
     rates = {name: [] for name in names}
 
+    gold_standard_aucs = []
+
     for seed in seeds:
         np.random.seed(seed)
 
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test)
 
-        model = model_fn()
+        model = model_fn(num_features=x_train.shape[1])
         model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
         y_prob = model.predict_proba(x_train)
 
@@ -82,13 +95,16 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, names, desired_fpr, 
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
         gold_standard_tnr, gold_standard_fpr, gold_standard_fnr, gold_standard_tpr = eval_model(y_test, y_pred)
+        gold_standard_auc = roc_auc_score(y_test, y_prob[:, 1])
 
         rates["fpr"].append(gold_standard_fpr)
         rates["tpr"].append(gold_standard_tpr)
         rates["fnr"].append(gold_standard_fnr)
         rates["tnr"].append(gold_standard_tnr)
 
-    return rates
+        gold_standard_aucs.append(gold_standard_auc)
+
+    return rates, gold_standard_aucs
 
 
 def find_threshold(y, y_prob, desired_fpr):
@@ -164,25 +180,17 @@ def main(args):
     results_dir = os.environ.get("REAL_DATA_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
-    if args.data_type == "mimic":
-        data = load_mimiciii_data()
-        data_fn = generate_mimic_dataset(data)
 
-    n_train = int(len(data["y"]) * args.n_train)
-    n_update = int(len(data["y"]) * args.n_update)
-    n_test = int(len(data["y"]) * args.n_test)
-
+    data_fn = get_data_fn(args)
     model_fn = get_model_fn(args.model)
     names = ["fpr", "tpr", "fnr", "tnr", "auc"]
 
-    rates = train_update_loop(model_fn, n_train, n_update, n_test, names, args.num_updates,
+    rates, initial_aucs, updated_aucs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, names, args.num_updates,
                               args.desired_fpr, data_fn, args.seeds)
-    gold_standard = gold_standard_loop(model_fn, n_train, n_update, n_test, names,
+    gold_standard, gold_standard_aucs = gold_standard_loop(model_fn, args.n_train, args.n_update, args.n_test, names,
                                        args.desired_fpr, data_fn, args.seeds)
 
     data = results_to_dataframe(rates)
-
-
 
     plot_name = "{}_{}".format(args.data_type, args.rate_types)
     plot_file_name = "{}_{}".format(plot_name, timestamp)
@@ -194,6 +202,14 @@ def main(args):
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
+
+    print("Initial AUCS:")
+    print(initial_aucs)
+    print("Updated AUCS:")
+    print(updated_aucs)
+
+    print("Gold Standard AUCS:")
+    print(gold_standard_aucs)
 
 
 

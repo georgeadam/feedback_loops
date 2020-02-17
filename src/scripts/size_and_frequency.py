@@ -13,6 +13,7 @@ from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback, update_model_feedback_with_training
+from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
 
@@ -22,8 +23,8 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic", choices=["gaussian", "sklearn", "mimic"], type=str)
-parser.add_argument("--seeds", default=3, type=int)
+parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
+parser.add_argument("--seeds", default=100, type=int)
 parser.add_argument("--model", default="lr", type=str)
 
 parser.add_argument("--n-train", default=1000, type=float)
@@ -47,7 +48,7 @@ def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, d
 
     for seed in seeds:
         for size in sizes:
-            np.random.seed(seed)
+            set_seed(seed)
 
             x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, size, n_test, num_features=num_features,
                                                                            noise=noise)

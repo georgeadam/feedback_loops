@@ -15,6 +15,7 @@ from src.utils.data import make_trend_gaussian_data
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback, update_model_feedback_linear_trend
+from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
 
@@ -51,7 +52,7 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
     results = {"updated_with_trend_on_shifted_data_fprs": [], "updated_no_trend_on_shifted_data_fprs": []}
 
     for seed in seeds:
-        np.random.seed(seed)
+        set_seed(seed)
         print(seed)
 
         x_train, y_train = make_trend_gaussian_data(m0, m1, s0, s1, n_train, num_features, noise=0.0,
