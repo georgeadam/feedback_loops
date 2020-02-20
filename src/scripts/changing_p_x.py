@@ -14,7 +14,7 @@ from src.models.sklearn import lr, linear_svm
 from src.utils.data import make_trend_gaussian_data
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
-from src.utils.update import update_model_feedback, update_model_feedback_linear_trend
+from src.utils.update import update_model_feedback
 from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -26,7 +26,7 @@ from settings import ROOT_DIR
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian"], type=str)
 parser.add_argument("--seeds", default=100, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=10000, type=int)
 parser.add_argument("--n-update", default=10000, type=int)
@@ -44,6 +44,28 @@ parser.add_argument("--range-max", default=5, type=float)
 
 parser.add_argument("--offset", default=3.0, type=float)
 
+parser.add_argument("--lr", default=1.0, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=1.0, type=float)
+
+
+def make_trend_update_data(m0, m1, s0, s1, n_update, num_updates, num_features, noise=0.0, uniform_range=[-5, 5],
+                           offset=3):
+    x = np.empty((0, num_features), float)
+    y = np.empty((0), int)
+
+    batch_size = int(n_update / float(num_updates))
+    offsets = np.linspace(0.0, offset, num_updates)
+
+    for i in range(num_updates):
+        off = offsets[i]
+        temp_x, temp_y = make_trend_gaussian_data(m0, m1, s0, s1, batch_size, num_features, noise=noise,
+                                                      uniform_range=[uniform_range[0] + off, uniform_range[1] + off])
+        x = np.concatenate((x, temp_x))
+        y = np.concatenate((y, temp_y))
+
+    return x, y
+
 
 def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, s0, s1, num_features, uniform_range,
                       offset, seeds):
@@ -57,10 +79,12 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
 
         x_train, y_train = make_trend_gaussian_data(m0, m1, s0, s1, n_train, num_features, noise=0.0,
                                                     uniform_range=uniform_range)
-        x_update, y_update = make_trend_gaussian_data(m0, m1, s0, s1, n_update, num_features, noise=0.0,
+
+        x_update_no_trend, y_update_no_trend = make_trend_gaussian_data(m0, m1, s0, s1, n_update, num_features, noise=0.0,
                                                       uniform_range=uniform_range)
-        x_test_orig, y_test_orig = make_trend_gaussian_data(m0, m1, s0, s1, n_test, num_features, noise=0.0,
-                                                            uniform_range=uniform_range)
+        x_update_trend, y_update_trend = make_trend_update_data(m0, m1, s0, s1, n_update, num_updates, num_features, noise=0.0,
+                                                                uniform_range=uniform_range, offset=offset)
+
         x_test_shifted, y_test_shifted = make_trend_gaussian_data(m0, m1, s0, s1, n_test, num_features, noise=0.0,
                                                                   uniform_range=[uniform_range[0] + offset,
                                                                                  uniform_range[1]])
@@ -68,20 +92,17 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
         model = model_fn(num_features=num_features)
         model.fit(x_train, y_train)
 
-        y_pred = model.predict(x_test_orig)
-
         y_pred = model.predict(x_test_shifted)
         initial_shifted_tnr, initial_shifted_fpr, initial_shifted_fnr, initial_shifted_tpr = eval_model(y_test_shifted,
                                                                                                         y_pred)
 
-        new_model, rates_updated_no_trend_evaluated_trend = update_model_feedback(model, x_update, y_update,
+        new_model, rates_updated_no_trend_evaluated_trend = update_model_feedback(model, x_update_no_trend, y_update_no_trend,
                                                                                   x_test_shifted, y_test_shifted,
                                                                                   num_updates, intermediate=True)
 
-        new_model, rates_update_trend_evaluated_trend = update_model_feedback_linear_trend(model, x_update, y_update,
-                                                                                           x_test_shifted,
-                                                                                           y_test_shifted, num_updates,
-                                                                                           offset, intermediate=True)
+        new_model, rates_update_trend_evaluated_trend = update_model_feedback(model, x_update_trend, y_update_trend,
+                                                                                  x_test_shifted, y_test_shifted,
+                                                                                  num_updates, intermediate=True)
 
         results["updated_no_trend_on_shifted_data_fprs"].append(
             [initial_shifted_fpr] + rates_updated_no_trend_evaluated_trend["fpr"])
@@ -124,7 +145,7 @@ def plot(data, labels, num_updates, plot_path):
 
     ax.set_xlim([0, num_updates])
 
-    legend = ax.legend(title="Update Type", title_fontsize=30, loc="upper right", labels=labels,
+    legend = ax.legend(title="Update Type", title_fontsize=30, loc="upper right",
                        bbox_to_anchor=(1.4, 1), borderaxespad=0., labelspacing=2.0)
     legend.texts[0].set_size(20)
 
@@ -144,7 +165,7 @@ def main(args):
     results_dir = os.environ.get("CHANGING_P_X_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
-    model_fn = get_model_fn(args.model)
+    model_fn = get_model_fn(args)
 
     uniform_range = [args.range_min, args.range_max]
     offset = args.offset
