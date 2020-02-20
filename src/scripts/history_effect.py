@@ -46,6 +46,10 @@ parser.add_argument("--p1", default=0.5, type=float)
 parser.add_argument("--train-percentages", default=[0.0, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                     nargs="+")
 
+parser.add_argument("--lr", default=1.0, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=1.0, type=float)
+
 
 def train_update_loop(model_fn, n_train, n_update, n_test, update_fn, num_updates, num_features, train_percentages, data_fn, seeds):
     seeds = np.arange(seeds)
@@ -130,9 +134,9 @@ def main(args):
     results_dir = os.environ.get("HISTORY_EFFECT_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
-    model_fn = get_model_fn(args.model)
-
+    model_fn = get_model_fn(args)
     data_fn = get_data_fn(args)
+
     results_non_cumulative = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, update_model_feedback_with_training,
                                                args.num_updates, args.num_features, args.train_percentages, data_fn, args.seeds)
 

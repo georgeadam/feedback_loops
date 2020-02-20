@@ -1,14 +1,22 @@
 from src.models.sklearn import lr, linear_svm
 from src.models.pytorch import LR, LREWC, NN
 
-def get_model_fn(model_name):
-    if model_name == "lr":
+
+def wrapped(fn, **kwargs):
+    def inside(num_features):
+        return fn(num_features=num_features, **kwargs)
+
+    return inside
+
+
+def get_model_fn(args):
+    if args.model == "lr":
         return lr
-    elif model_name == "linear_svm":
+    elif args.model == "linear_svm":
         return linear_svm
-    elif model_name == "lr_pytorch":
-        return LR
-    elif model_name == "lr_ewc":
-        return LREWC
-    elif model_name == "nn":
-        return NN
+    elif args.model == "lr_pytorch":
+        return wrapped(LR, lr=args.lr, iterations=args.iterations)
+    elif args.model == "lr_ewc":
+        return wrapped(LREWC, lr=args.lr, iterations=args.iterations, importance=args.importance)
+    elif args.model == "nn":
+        return wrapped(NN, lr=args.lr, iterations=args.iterations)

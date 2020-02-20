@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 import importlib
 
-from src.models.sklearn import lr
 from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
@@ -24,8 +23,8 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
-parser.add_argument("--seeds", default=100, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=1000, type=float)
 parser.add_argument("--n-test", default=50000, type=float)
@@ -41,6 +40,11 @@ parser.add_argument("--p1", default=0.5, type=float)
 
 parser.add_argument("--sizes", default=[500, 1000, 2500, 5000, 10000], nargs="+")
 parser.add_argument("--noise", default=0.0, type=float)
+
+parser.add_argument("--lr", default=1.0, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=1.0, type=float)
+
 
 def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, data_fn, noise, seeds):
     seeds = np.arange(seeds)
@@ -150,13 +154,13 @@ def main(args):
     results_dir = os.environ.get("SIZE_AND_FREQUENCY_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
-    model_fn = get_model_fn(args.model)
+    model_fn = get_model_fn(args)
     data_fn = get_data_fn(args)
 
     gold_standard_fprs = gold_standard_loop(model_fn, args.n_train, args.sizes[-1], args.n_test, args.num_features, data_fn,
                                             args.noise, args.seeds)
     results = train_update_loop(model_fn, args.n_train, args.n_test, args.sizes, args.num_features, args.num_updates, data_fn, args.noise,
-                                                 args.seeds)
+                                args.seeds)
 
     data = results_to_dataframe(results, args.sizes, args.num_updates, args.seeds)
     gs = np.mean(gold_standard_fprs["fpr"])

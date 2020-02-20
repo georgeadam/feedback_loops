@@ -12,7 +12,7 @@ import importlib
 from src.models.sklearn import lr, linear_svm
 from src.utils.data import make_trend_gaussian_data
 from src.utils.metrics import eval_model
-from src.utils.update import update_model_feedback, update_model_feedback_linear_trend
+from src.utils.update import update_model_feedback
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
 

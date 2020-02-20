@@ -10,7 +10,7 @@ from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage
-from src.utils.update import update_model_feedback
+from src.utils.update import get_update_fn
 from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -23,18 +23,24 @@ from sklearn.metrics import roc_auc_score
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2"], type=str)
 parser.add_argument("--seeds", default=3, type=int)
-parser.add_argument("--model", default="nn", type=str)
+parser.add_argument("--model", default="lr_pytorch", type=str)
 
-parser.add_argument("--n-train", default=0.4, type=percentage)
-parser.add_argument("--n-update", default=0.4, type=percentage)
+parser.add_argument("--n-train", default=0.1, type=percentage)
+parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
 parser.add_argument("--num-updates", default=500, type=int)
 
 parser.add_argument("--desired-fpr", default=0.1, type=float)
 parser.add_argument("--rate-types", default=["fpr", "fnr"], nargs="+")
 
+parser.add_argument("--lr", default=0.1, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=100000.0, type=float)
 
-def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, desired_fpr, data_fn, seeds):
+parser.add_argument("--update-type", default="feedback_confidence", type=str)
+
+
+def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, desired_fpr, data_fn, update_fn, seeds):
     seeds = np.arange(seeds)
 
     rates = {name: [] for name in names}
@@ -59,7 +65,7 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
         initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
         initial_auc = roc_auc_score(y_test, y_prob[:, 1])
 
-        new_model, temp_rates = update_model_feedback(model, x_update, y_update, x_test, y_test, num_updates,
+        new_model, temp_rates = update_fn(model, x_update, y_update, x_test, y_test, num_updates,
                                                       intermediate=True, threshold=threshold)
 
         y_prob = new_model.predict_proba(x_test)
@@ -144,7 +150,7 @@ def results_to_dataframe(rates):
     return pd.DataFrame(data)
 
 
-def plot_rates(data, rate_types, gs_lines, plot_path):
+def plot_rates(data, rate_types, gs_lines, title, plot_path):
     fig = plt.figure(figsize=(13, 9))
     ax = fig.add_subplot(111)
     g = sns.lineplot(x="num_updates", y="rate", hue="type", data=data.loc[data["type"].isin(rate_types)],
@@ -160,6 +166,8 @@ def plot_rates(data, rate_types, gs_lines, plot_path):
 
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
+
+    fig.suptitle(title)
 
     legend = ax.legend(title="Rate Type", title_fontsize=30, labels=list(map(lambda x: x.upper(), rate_types)),
                        loc="upper left")
@@ -177,16 +185,17 @@ def main(args):
 
     timestamp = get_timestamp()
 
-    results_dir = os.environ.get("REAL_DATA_RESULTS_DIR")
+    results_dir = os.environ.get("DESIRED_FPR_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
 
     data_fn = get_data_fn(args)
-    model_fn = get_model_fn(args.model)
+    model_fn = get_model_fn(args)
+    update_fn = get_update_fn(args)
     names = ["fpr", "tpr", "fnr", "tnr", "auc"]
 
     rates, initial_aucs, updated_aucs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, names, args.num_updates,
-                              args.desired_fpr, data_fn, args.seeds)
+                              args.desired_fpr, data_fn, update_fn, args.seeds)
     gold_standard, gold_standard_aucs = gold_standard_loop(model_fn, args.n_train, args.n_update, args.n_test, names,
                                        args.desired_fpr, data_fn, args.seeds)
 
@@ -196,8 +205,12 @@ def main(args):
     plot_file_name = "{}_{}".format(plot_name, timestamp)
     plot_path = os.path.join(results_dir, plot_file_name)
 
+    plot_title = "Initial AUC: {} | Updated AUC: {} | Gold Standard AUC: {}".format(np.mean(initial_aucs),
+                                                                                    np.mean(updated_aucs),
+                                                                                    np.mean(gold_standard_aucs))
+
     create_file_path(plot_path)
-    plot_rates(data, args.rate_types, [np.mean(gold_standard[key]) for key in args.rate_types], plot_path)
+    plot_rates(data, args.rate_types, [np.mean(gold_standard[key]) for key in args.rate_types], plot_title, plot_path)
 
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)

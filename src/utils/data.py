@@ -17,6 +17,8 @@ def get_data_fn(args):
         return generate_sklearn_make_classification_dataset
     elif args.data_type == "mimic":
         return generate_mimic_dataset()
+    elif args.data_type == "moons":
+        return generate_moons_dataset
 
 
 def perturb_labels_fp(y, rate=0.05):

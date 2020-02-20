@@ -40,6 +40,10 @@ parser.add_argument("--s1", default=1.0, type=float)
 parser.add_argument("--p0", default=0.5, type=float)
 parser.add_argument("--p1", default=0.5, type=float)
 
+parser.add_argument("--lr", default=1.0, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=1.0, type=float)
+
 
 def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, features, data_fn, seeds):
     seeds = np.arange(seeds)
@@ -112,7 +116,7 @@ def main(args):
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
     data_fn = get_data_fn(args)
-    model_fn = get_model_fn(args.model)
+    model_fn = get_model_fn(args)
 
     features = np.arange(args.features) + 2
     initial_fprs, updated_fprs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test,
