@@ -11,7 +11,7 @@ import importlib
 from src.utils.data import get_data_fn
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
-from src.utils.update import update_model_feedback, update_model_feedback_with_training
+from src.utils.update import get_update_fn
 from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -45,8 +45,10 @@ parser.add_argument("--lr", default=1.0, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=1.0, type=float)
 
+parser.add_argument("--update-type", default="feedback_confidence", type=str)
 
-def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, data_fn, noise, seeds):
+
+def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, data_fn, update_fn, noise, seeds):
     seeds = np.arange(seeds)
     results = {size: {"fpr": [], "fnr": [], "tpr": [], "tnr": []} for size in sizes}
 
@@ -63,7 +65,7 @@ def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, d
             y_pred = model.predict(x_test)
             initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
 
-            new_model, rates = update_model_feedback(model, x_update, y_update, x_test, y_test, updates, intermediate=True)
+            new_model, rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, updates, intermediate=True)
 
             results[size]["fpr"].append([initial_fpr] + rates["fpr"])
             results[size]["fnr"].append([initial_fnr] + rates["fnr"])
@@ -156,11 +158,12 @@ def main(args):
 
     model_fn = get_model_fn(args)
     data_fn = get_data_fn(args)
+    update_fn = get_update_fn(args)
 
     gold_standard_fprs = gold_standard_loop(model_fn, args.n_train, args.sizes[-1], args.n_test, args.num_features, data_fn,
                                             args.noise, args.seeds)
-    results = train_update_loop(model_fn, args.n_train, args.n_test, args.sizes, args.num_features, args.num_updates, data_fn, args.noise,
-                                args.seeds)
+    results = train_update_loop(model_fn, args.n_train, args.n_test, args.sizes, args.num_features, args.num_updates,
+                                data_fn, update_fn, args.noise, args.seeds)
 
     data = results_to_dataframe(results, args.sizes, args.num_updates, args.seeds)
     gs = np.mean(gold_standard_fprs["fpr"])

@@ -63,8 +63,8 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_feat
         y_pred = model.predict(x_test)
         initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
 
-        new_model_noise = update_model_noise(model, x_update, y_update, num_updates, initial_fpr)
-        new_model_feedback, _ = update_model_feedback(model, x_update, y_update, x_test, y_test, num_updates)
+        new_model_noise, _ = update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates, rate=initial_fpr)
+        new_model_feedback, _ = update_model_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates)
 
         y_pred_noise = new_model_noise.predict(x_test)
         updated_tnr_noise, updated_fpr_noise, updated_fnr_noise, updated_tpr_noise = eval_model(y_test, y_pred_noise)

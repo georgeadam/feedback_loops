@@ -37,7 +37,7 @@ parser.add_argument("--lr", default=0.1, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=100000.0, type=float)
 
-parser.add_argument("--update-type", default="feedback_confidence", type=str)
+parser.add_argument("--update-type", default="feedback", type=str)
 
 
 def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, desired_fpr, data_fn, update_fn, seeds):
@@ -65,8 +65,8 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
         initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
         initial_auc = roc_auc_score(y_test, y_prob[:, 1])
 
-        new_model, temp_rates = update_fn(model, x_update, y_update, x_test, y_test, num_updates,
-                                                      intermediate=True, threshold=threshold)
+        new_model, temp_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
+                                          intermediate=True, threshold=threshold)
 
         y_prob = new_model.predict_proba(x_test)
         updated_auc = roc_auc_score(y_test, y_prob[:, 1])
@@ -188,10 +188,10 @@ def main(args):
     results_dir = os.environ.get("DESIRED_FPR_RESULTS_DIR")
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
-
     data_fn = get_data_fn(args)
     model_fn = get_model_fn(args)
     update_fn = get_update_fn(args)
+
     names = ["fpr", "tpr", "fnr", "tnr", "auc"]
 
     rates, initial_aucs, updated_aucs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, names, args.num_updates,

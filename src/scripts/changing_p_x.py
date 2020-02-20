@@ -14,7 +14,7 @@ from src.models.sklearn import lr, linear_svm
 from src.utils.data import make_trend_gaussian_data
 from src.utils.metrics import eval_model
 from src.utils.model import get_model_fn
-from src.utils.update import update_model_feedback
+from src.utils.update import get_update_fn
 from src.utils.rand import set_seed
 from src.utils.save import create_file_path, save_json, CONFIG_FILE
 from src.utils.time import get_timestamp
@@ -48,6 +48,8 @@ parser.add_argument("--lr", default=1.0, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=1.0, type=float)
 
+parser.add_argument("--update-type", default="feedback", type=str)
+
 
 def make_trend_update_data(m0, m1, s0, s1, n_update, num_updates, num_features, noise=0.0, uniform_range=[-5, 5],
                            offset=3):
@@ -68,7 +70,7 @@ def make_trend_update_data(m0, m1, s0, s1, n_update, num_updates, num_features, 
 
 
 def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, s0, s1, num_features, uniform_range,
-                      offset, seeds):
+                      offset, update_fn, seeds):
     seeds = np.arange(seeds)
 
     results = {"updated_with_trend_on_shifted_data_fprs": [], "updated_no_trend_on_shifted_data_fprs": []}
@@ -96,13 +98,14 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
         initial_shifted_tnr, initial_shifted_fpr, initial_shifted_fnr, initial_shifted_tpr = eval_model(y_test_shifted,
                                                                                                         y_pred)
 
-        new_model, rates_updated_no_trend_evaluated_trend = update_model_feedback(model, x_update_no_trend, y_update_no_trend,
-                                                                                  x_test_shifted, y_test_shifted,
-                                                                                  num_updates, intermediate=True)
+        new_model, rates_updated_no_trend_evaluated_trend = update_fn(model, x_train, y_train, x_update_no_trend,
+                                                                      y_update_no_trend, x_test_shifted, y_test_shifted,
+                                                                      num_updates, intermediate=True)
 
-        new_model, rates_update_trend_evaluated_trend = update_model_feedback(model, x_update_trend, y_update_trend,
-                                                                                  x_test_shifted, y_test_shifted,
-                                                                                  num_updates, intermediate=True)
+        new_model, rates_update_trend_evaluated_trend = update_fn(model, x_train, y_train,
+                                                                  x_update_trend, y_update_trend,
+                                                                  x_test_shifted, y_test_shifted,
+                                                                  num_updates, intermediate=True)
 
         results["updated_no_trend_on_shifted_data_fprs"].append(
             [initial_shifted_fpr] + rates_updated_no_trend_evaluated_trend["fpr"])
@@ -166,19 +169,20 @@ def main(args):
     results_dir = os.path.join(ROOT_DIR, results_dir)
 
     model_fn = get_model_fn(args)
+    update_fn = get_update_fn(args)
 
     uniform_range = [args.range_min, args.range_max]
     offset = args.offset
     results_positive = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, args.num_updates,
                                                             args.m0, args.m1, args.s0, args.s1, args.num_features,
-                                                            uniform_range, offset, args.seeds)
+                                                            uniform_range, offset, update_fn, args.seeds)
 
     data_positive = results_to_dataframe(results_positive, "pos")
 
     offset = - args.offset
     results_negative = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, args.num_updates,
                                          args.m0, args.m1, args.s0, args.s1, args.num_features,
-                                         uniform_range, offset, args.seeds)
+                                         uniform_range, offset, update_fn, args.seeds)
     data_negative = results_to_dataframe(results_negative, "neg")
 
     labels = ["Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{pos}}_{\mathrm{test}}(x)$"] + [

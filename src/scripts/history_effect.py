@@ -28,7 +28,7 @@ from settings import ROOT_DIR
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
 parser.add_argument("--seeds", default=100, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=1000, type=float)
 parser.add_argument("--n-update", default=1000, type=float)
