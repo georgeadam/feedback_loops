@@ -51,11 +51,12 @@ class StandardModel(nn.Module):
     def predict_proba(self, x):
         x = torch.from_numpy(x).float().to(self.device)
 
-        softmax = torch.nn.Softmax()
+        softmax = torch.nn.Softmax(dim=1)
 
         out = self.forward(x)
 
-        return softmax(out / 10.0).detach().cpu().numpy()
+        return softmax(out).detach().cpu().numpy()
+
 
 class LR(StandardModel):
     def __init__(self, num_features, iterations=1000, lr=1.0):
@@ -74,18 +75,14 @@ class EWCModel(nn.Module):
 
         self.criterion = torch.nn.CrossEntropyLoss()
 
+        self.importance = 1.0
         self.iterations = iterations
         self.device = "cpu:0"
 
-        self.x = None
-        self.y = None
         self.ewc = None
 
     def fit(self, x, y):
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).long()
-        self.x = x
-        self.y = y
-        self.ewc = EWC(self, self.x, self.y)
 
         for i in range(self.iterations):
             out = self.forward(x)
@@ -96,12 +93,18 @@ class EWCModel(nn.Module):
             self.optimizer.step()
             self.optimizer.zero_grad()
 
+        self.ewc = EWC(self, x, y)
+
     def partial_fit(self, x, y, *args, **kwargs):
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).long()
 
         out = self.forward(x)
 
-        loss = self.criterion(out, y) + self.ewc.penalty(self)
+        ce_loss = self.criterion(out, y)
+        penalty = self.importance * self.ewc.penalty(self)
+
+        loss = ce_loss + penalty
+
         loss.backward()
 
         self.optimizer.step()
@@ -119,17 +122,18 @@ class EWCModel(nn.Module):
     def predict_proba(self, x):
         x = torch.from_numpy(x).float().to(self.device)
 
-        softmax = torch.nn.Softmax()
+        softmax = torch.nn.Softmax(dim=1)
 
         out = self.forward(x)
 
-        return softmax(out / 10.0).detach().cpu().numpy()
+        return softmax(out).detach().cpu().numpy()
 
 
 class LREWC(EWCModel):
-    def __init__(self, num_features, iterations=1000, lr=1.0):
+    def __init__(self, num_features, iterations=1000, lr=0.1, importance=1.0):
         super(LREWC, self).__init__(iterations=iterations)
 
+        self.importance = importance
         self.w = nn.Linear(num_features, 2)
         self.optimizer = torch.optim.SGD(self.parameters(), lr=lr)
 
@@ -142,8 +146,8 @@ class NN(StandardModel):
         super(NN, self).__init__(iterations=iterations)
 
         self.device = "cuda:0"
-        self.fc1 = nn.Linear(num_features, 50).to(self.device)
-        self.fc2 = nn.Linear(50, num_features).to(self.device)
+        self.fc1 = nn.Linear(num_features, 10).to(self.device)
+        self.fc2 = nn.Linear(10, num_features).to(self.device)
 
         self.activation = nn.ReLU()
 
