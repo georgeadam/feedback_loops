@@ -149,7 +149,7 @@ class NN(StandardModel):
         self.fc1 = nn.Linear(num_features, 10).to(self.device)
         self.fc2 = nn.Linear(10, num_features).to(self.device)
 
-        self.activation = nn.ReLU()
+        self.activation = nn.Tanh()
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 

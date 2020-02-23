@@ -12,13 +12,18 @@ from settings import ROOT_DIR
 
 def get_data_fn(args):
     if args.data_type == "gaussian":
-        return generate_gaussian_dataset(args.m0, args.m1, args.s0, args.s1, args.p0, args.p1)
+        if hasattr(args, "m0"):
+            return generate_gaussian_dataset(args.m0, args.m1, args.s0, args.s1, args.p0, args.p1)
+        else:
+            return generate_gaussian_dataset()
     elif args.data_type == "sklearn":
         return generate_sklearn_make_classification_dataset
     elif args.data_type == "mimic":
-        return generate_mimic_dataset()
+        return generate_real_dataset(load_mimiciii_data)
     elif args.data_type == "moons":
         return generate_moons_dataset
+    elif args.data_type == "support2":
+        return generate_real_dataset(load_support2cls_data)
 
 
 def perturb_labels_fp(y, rate=0.05):
@@ -77,7 +82,7 @@ def make_trend_gaussian_data(m0, m1, s0, s1, n, num_features=2, noise=0.0, unifo
     return x, y
 
 
-def generate_gaussian_dataset(m0, m1, s0, s1, p0, p1):
+def generate_gaussian_dataset(m0=-1, m1=1, s0=1, s1=1, p0=0.5, p1=0.5):
     def wrapped(n_train, n_update, n_test, num_features=2, noise=0.0):
         x_train, y_train = make_gaussian_data(m0, m1, s0, s1, n_train, p0, p1, num_features=num_features, noise=noise)
 
@@ -171,8 +176,8 @@ def load_mimiciii_data():
     return dataset
 
 
-def generate_mimic_dataset():
-    data = load_mimiciii_data()
+def generate_real_dataset(fn):
+    data = fn()
 
     float_cols = []
 
@@ -206,7 +211,7 @@ def generate_mimic_dataset():
 
 
 def load_support2cls_data():
-    df = pd.read_csv('support2.csv')
+    df = pd.read_csv(os.path.join(ROOT_DIR, 'support2.csv'))
     one_hot_encode_cols = ['sex', 'dzclass', 'race', 'ca', 'income']
     target_variables = ['hospdead']
     remove_features = ['death', 'slos', 'd.time', 'dzgroup', 'charges', 'totcst',

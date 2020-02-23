@@ -18,29 +18,31 @@ from src.utils.time import get_timestamp
 from argparse import ArgumentParser
 from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, f1_score
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2"], type=str)
+parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=3, type=int)
-parser.add_argument("--model", default="lr_pytorch", type=str)
+parser.add_argument("--model", default="random_forest", type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
 parser.add_argument("--num-updates", default=500, type=int)
+parser.add_argument("--num-features", default=20, type=int)
 
 parser.add_argument("--desired-fpr", default=0.1, type=float)
-parser.add_argument("--rate-types", default=["fpr", "fnr"], nargs="+")
+parser.add_argument("--rate-types", default=["fpr", "fnr", "tpr", "tnr"], nargs="+")
 
 parser.add_argument("--lr", default=0.1, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=100000.0, type=float)
 
-parser.add_argument("--update-type", default="feedback", type=str)
+parser.add_argument("--update-type", default="feedback_full_fit", type=str)
 
 
-def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, desired_fpr, data_fn, update_fn, seeds):
+def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, num_features,
+                      desired_fpr, data_fn, update_fn, seeds):
     seeds = np.arange(seeds)
 
     rates = {name: [] for name in names}
@@ -48,11 +50,15 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
     initial_aucs = []
     updated_aucs = []
 
+    initial_f1_scores = []
+    updated_f1_scores = []
+
     for seed in seeds:
         print(seed)
         set_seed(seed)
 
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test)
+        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
+                                                                       num_features=num_features)
 
         model = model_fn(num_features=x_train.shape[1])
         model.fit(x_train, y_train)
@@ -62,14 +68,18 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
 
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
+
         initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
         initial_auc = roc_auc_score(y_test, y_prob[:, 1])
+        initial_f1_score = f1_score(y_test, y_pred)
 
         new_model, temp_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
                                           intermediate=True, threshold=threshold)
 
         y_prob = new_model.predict_proba(x_test)
+        y_pred = y_prob[:, 1] > threshold
         updated_auc = roc_auc_score(y_test, y_prob[:, 1])
+        updated_f1_score = f1_score(y_test, y_pred)
 
         rates["fpr"].append([initial_fpr] + temp_rates["fpr"])
         rates["tpr"].append([initial_tpr] + temp_rates["tpr"])
@@ -78,19 +88,24 @@ def train_update_loop(model_fn, n_train, n_update, n_test, names, num_updates, d
         initial_aucs.append(initial_auc)
         updated_aucs.append(updated_auc)
 
-    return rates, initial_aucs, updated_aucs
+        initial_f1_scores.append(initial_f1_score)
+        updated_f1_scores.append(updated_f1_score)
+
+    return rates, initial_aucs, updated_aucs, initial_f1_scores, updated_f1_scores
 
 
-def gold_standard_loop(model_fn, n_train, n_update, n_test, names, desired_fpr, data_fn, seeds):
+def gold_standard_loop(model_fn, n_train, n_update, n_test, names, num_features, desired_fpr, data_fn, seeds):
     seeds = np.arange(seeds)
     rates = {name: [] for name in names}
 
     gold_standard_aucs = []
+    gold_standard_f1_scores = []
 
     for seed in seeds:
         np.random.seed(seed)
 
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test)
+        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
+                                                                       num_features=num_features)
 
         model = model_fn(num_features=x_train.shape[1])
         model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
@@ -102,6 +117,7 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, names, desired_fpr, 
         y_pred = y_prob[:, 1] > threshold
         gold_standard_tnr, gold_standard_fpr, gold_standard_fnr, gold_standard_tpr = eval_model(y_test, y_pred)
         gold_standard_auc = roc_auc_score(y_test, y_prob[:, 1])
+        gold_standard_f1_score = f1_score(y_test, y_pred)
 
         rates["fpr"].append(gold_standard_fpr)
         rates["tpr"].append(gold_standard_tpr)
@@ -109,8 +125,9 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, names, desired_fpr, 
         rates["tnr"].append(gold_standard_tnr)
 
         gold_standard_aucs.append(gold_standard_auc)
+        gold_standard_f1_scores.append(gold_standard_f1_score)
 
-    return rates, gold_standard_aucs
+    return rates, gold_standard_aucs, gold_standard_f1_scores
 
 
 def find_threshold(y, y_prob, desired_fpr):
@@ -194,10 +211,13 @@ def main(args):
 
     names = ["fpr", "tpr", "fnr", "tnr", "auc"]
 
-    rates, initial_aucs, updated_aucs = train_update_loop(model_fn, args.n_train, args.n_update, args.n_test, names, args.num_updates,
-                              args.desired_fpr, data_fn, update_fn, args.seeds)
-    gold_standard, gold_standard_aucs = gold_standard_loop(model_fn, args.n_train, args.n_update, args.n_test, names,
-                                       args.desired_fpr, data_fn, args.seeds)
+    rates, initial_aucs, updated_aucs, initial_f1_scores, updated_f1_scores = train_update_loop(model_fn, args.n_train,
+                                                                                                args.n_update, args.n_test,
+                                                                                                names, args.num_updates, args.num_features,
+                                                                                                args.desired_fpr, data_fn, update_fn, args.seeds)
+    gold_standard, gold_standard_aucs, gold_standard_f1_scores = gold_standard_loop(model_fn, args.n_train, args.n_update,
+                                                                                    args.n_test, names, args.num_features,
+                                                                                    args.desired_fpr, data_fn, args.seeds)
 
     data = results_to_dataframe(rates)
 
@@ -223,6 +243,14 @@ def main(args):
 
     print("Gold Standard AUCS:")
     print(gold_standard_aucs)
+
+    print("Initial F1 Scores:")
+    print(initial_f1_scores)
+    print("Updated F1 Scores:")
+    print(updated_f1_scores)
+
+    print("Gold Standard F1 Scores:")
+    print(gold_standard_f1_scores)
 
 
 

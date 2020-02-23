@@ -11,6 +11,10 @@ def get_update_fn(args):
         return update_model_no_feedback
     elif args.update_type == "feedback_confidence":
         return update_model_feedback_confidence
+    elif args.update_type == "feedback_full_fit":
+        return update_model_full_fit_feedback
+    elif args.update_type == "no_feedback_full_fit":
+        return update_model_full_fit_no_feedback
 
 
 def update_model_no_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,

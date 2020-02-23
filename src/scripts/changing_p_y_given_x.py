@@ -25,14 +25,19 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="moons", choices=["moons"], type=str)
-parser.add_argument("--seeds", default=5, type=int)
-parser.add_argument("--model", default="lr_ewc", type=str)
+parser.add_argument("--seeds", default=10, type=int)
+parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=10000, type=int)
 parser.add_argument("--n-update", default=10000, type=int)
 parser.add_argument("--n-test", default=50000, type=int)
 parser.add_argument("--num-features", default=2, type=int)
 parser.add_argument("--num-updates", default=100, type=int)
+
+parser.add_argument("--lr", default=1.0, type=float)
+parser.add_argument("--iterations", default=1000, type=int)
+parser.add_argument("--importance", default=1.0, type=float)
+
 
 parser.add_argument("--update-type", default="feedback", type=str)
 
@@ -102,13 +107,13 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_feat
         initial_shifted_tnr, initial_shifted_fpr, initial_shifted_fnr, initial_shifted_tpr = eval_model(y_test_shifted,
                                                                                                         y_pred)
 
-        new_model, rates_updated_no_trend_evaluated_trend = update_fn(model, x_update_no_trend, y_update_no_trend,
-                                                                                  x_test_shifted, y_test_shifted,
-                                                                                  num_updates, intermediate=True)
+        new_model, rates_updated_no_trend_evaluated_trend = update_fn(model, x_train, y_train, x_update_no_trend,
+                                                                      y_update_no_trend, x_test_shifted, y_test_shifted,
+                                                                      num_updates, intermediate=True)
 
-        new_model, rates_updated_trend_evaluated_trend = update_fn(model, x_update_trend, y_update_trend,
-                                                                                  x_test_shifted, y_test_shifted,
-                                                                                  num_updates, intermediate=True)
+        new_model, rates_updated_trend_evaluated_trend = update_fn(model, x_train, y_train, x_update_trend,
+                                                                   y_update_trend, x_test_shifted, y_test_shifted,
+                                                                   num_updates, intermediate=True)
 
         results["updated_no_trend_on_shifted_data_fprs"].append(
             [initial_shifted_fpr] + rates_updated_no_trend_evaluated_trend["fpr"])
