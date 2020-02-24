@@ -6,7 +6,7 @@ CHECKPOINT_FILE = "checkpoint.pt"
 MODEL_FILE = "model.pt"
 WEIGHT_FILE = "weights.pt"
 CONFIG_FILE = "{}_{}_config.json"
-STATS_FILE = "stats.json"
+STATS_FILE = "{}_{}_stats.json"
 MASKS_FILE = "masks.pkl"
 
 def create_file_path(file_path):

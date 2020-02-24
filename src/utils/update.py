@@ -1,8 +1,8 @@
 import copy
 import numpy as np
 
-from .metrics import eval_model
-
+from src.utils.misc import create_empty_rates
+from src.utils.metrics import compute_all_rates
 
 def get_update_fn(args):
     if args.update_type == "feedback":
@@ -18,7 +18,7 @@ def get_update_fn(args):
 
 
 def update_model_no_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                             intermediate=False, threshold=None):
+                             intermediate=False, threshold=None, dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -26,7 +26,7 @@ def update_model_no_feedback(model, x_train, y_train, x_update, y_update, x_test
 
     classes = np.unique(y_update)
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -36,13 +36,18 @@ def update_model_no_feedback(model, x_train, y_train, x_update, y_update, x_test
 
         new_model.partial_fit(sub_x, sub_y, classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                          intermediate=False, threshold=None):
+                          intermediate=False, threshold=None, dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -50,7 +55,7 @@ def update_model_feedback(model, x_train, y_train, x_update, y_update, x_test, y
 
     classes = np.unique(y_update)
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -64,13 +69,18 @@ def update_model_feedback(model, x_train, y_train, x_update, y_update, x_test, y
 
         new_model.partial_fit(sub_x, sub_y, classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                       intermediate=False, threshold=None, rate=0.2):
+                       intermediate=False, threshold=None, rate=0.2, dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -78,7 +88,7 @@ def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_te
 
     classes = np.unique(y_update)
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -94,13 +104,19 @@ def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_te
 
         new_model.partial_fit(sub_x, sub_y, classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_conditional_trust(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                   intermediate=False, threshold=None, physician_fpr=0.1):
+                                   intermediate=False, threshold=None, physician_fpr=0.1,
+                                   dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -111,7 +127,7 @@ def update_model_conditional_trust(model, x_train, y_train, x_update, y_update, 
     trust = None
 
     trusts = []
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -144,6 +160,11 @@ def update_model_conditional_trust(model, x_train, y_train, x_update, y_update, 
 
         fpr = float(len(model_fp_idx)) / float(len(sub_y))
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
         trust = 1 - fpr
@@ -152,14 +173,15 @@ def update_model_conditional_trust(model, x_train, y_train, x_update, y_update, 
 
 
 def update_model_increasing_trust(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                  intermediate=False, threshold=None, trusts=[], physician_fpr=0.1):
+                                  intermediate=False, threshold=None, trusts=[], physician_fpr=0.1,
+                                  dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
 
     classes = np.unique(y_update)
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         trust = trusts[i]
@@ -188,20 +210,26 @@ def update_model_increasing_trust(model, x_train, y_train, x_update, y_update, x
         new_model.partial_fit(sub_x, target, classes)
         model_pred = new_model.predict(sub_x)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_feedback_with_training(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                        intermediate=False, threshold=None):
+                                        intermediate=False, threshold=None,
+                                        dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
 
     classes = np.unique(y_update)
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -215,13 +243,19 @@ def update_model_feedback_with_training(model, x_train, y_train, x_update, y_upd
 
         new_model.partial_fit(np.concatenate((sub_x, x_train)), np.concatenate((sub_y, y_train)), classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_update, y_update, x_test, y_test,
-                                                   num_updates, intermediate=False, threshold=None):
+                                                   num_updates, intermediate=False, threshold=None,
+                                                   dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -232,7 +266,7 @@ def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_up
     cumulative_x = None
     cumulative_y = None
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -253,13 +287,18 @@ def update_model_feedback_with_training_cumulative(model, x_train, y_train, x_up
 
         new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_full_fit_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                   intermediate=False, threshold=None):
+                                   intermediate=False, threshold=None, dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -268,7 +307,7 @@ def update_model_full_fit_feedback(model, x_train, y_train, x_update, y_update, 
     cumulative_x = None
     cumulative_y = None
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -289,13 +328,18 @@ def update_model_full_fit_feedback(model, x_train, y_train, x_update, y_update, 
 
         new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)))
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
 
 
 def update_model_full_fit_no_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                      intermediate=False, threshold=None):
+                                      intermediate=False, threshold=None, dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -304,7 +348,7 @@ def update_model_full_fit_no_feedback(model, x_train, y_train, x_update, y_updat
     cumulative_x = None
     cumulative_y = None
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -321,13 +365,19 @@ def update_model_full_fit_no_feedback(model, x_train, y_train, x_update, y_updat
 
         new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)))
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, None
 
 
 def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                     intermediate=False, threshold=None, drop_proportion=0.8):
+                                     intermediate=False, threshold=None, drop_proportion=0.8,
+                                     dynamic_desired_rate=None, dynamic_desired_value=None):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -335,7 +385,7 @@ def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update
 
     classes = np.unique(y_update)
 
-    rates = {"fpr": [], "tpr": [], "fnr": [], "tnr": []}
+    rates = create_empty_rates()
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -371,6 +421,11 @@ def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update
 
         new_model.partial_fit(sub_x, sub_y, classes)
 
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
     return new_model, rates
@@ -379,13 +434,52 @@ def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update
 def append_rates(intermediate, new_model, rates, threshold, x_test, y_test):
     if intermediate:
         if threshold is None:
+            pred_prob = new_model.predict_proba(x_test)
             new_pred = new_model.predict(x_test)
         else:
             pred_prob = new_model.predict_proba(x_test)
             new_pred = pred_prob[:, 1] >= threshold
 
-        updated_tnr, updated_fpr, updated_fnr, updated_tpr = eval_model(y_test, new_pred)
-        rates["fpr"].append(updated_fpr)
-        rates["tpr"].append(updated_tpr)
-        rates["fnr"].append(updated_fnr)
-        rates["tnr"].append(updated_tnr)
+        updated_rates = compute_all_rates(y_test, new_pred, pred_prob)
+
+        for key in rates.keys():
+            rates[key].append(updated_rates[key])
+
+
+def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):
+    thresholds = np.linspace(0.01, 0.999, 1000)
+    best_threshold = None
+    best_diff = float("inf")
+
+    l = 0
+    r = len(thresholds)
+
+    while l < r:
+        mid = l + (r - l) // 2
+        threshold = thresholds[mid]
+
+        temp_pred = y_prob[:, 1] >= threshold
+        rates = compute_all_rates(y, temp_pred, y_prob)
+
+        direction = get_direction(desired_rate)
+
+        if abs(rates[desired_rate] - desired_value) <= desired_value * tol:
+            return threshold
+        elif (rates[desired_rate] < desired_value and direction == "decreasing") or (rates[desired_rate] > desired_value and direction == "increasing"):
+            l = mid + 1
+        else:
+            r = mid - 1
+
+        if abs(rates[desired_rate] - desired_value) <= best_diff:
+            best_diff = abs(rates[desired_rate] - desired_value)
+            best_threshold = threshold
+
+
+    return best_threshold
+
+
+def get_direction(rate):
+    if rate == "fpr" or rate == "tnr":
+        return "increasing"
+    elif rate == "fnr" or rate == "tpr":
+        return "decreasing"
