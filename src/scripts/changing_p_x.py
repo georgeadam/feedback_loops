@@ -12,7 +12,8 @@ import importlib
 
 from src.models.sklearn import lr, linear_svm
 from src.utils.data import make_trend_gaussian_data
-from src.utils.metrics import eval_model
+from src.utils.metrics import eval_model, compute_all_rates
+from src.utils.misc import create_empty_rates
 from src.utils.model import get_model_fn
 from src.utils.update import get_update_fn
 from src.utils.rand import set_seed
@@ -25,7 +26,7 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian"], type=str)
-parser.add_argument("--seeds", default=100, type=int)
+parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=10000, type=int)
@@ -38,6 +39,8 @@ parser.add_argument("--m0", default=-1.0, type=float)
 parser.add_argument("--m1", default=1.0, type=float)
 parser.add_argument("--s0", default=1.0, type=float)
 parser.add_argument("--s1", default=1.0, type=float)
+
+parser.add_argument("--rate-types", default=["fpr"], nargs="+")
 
 parser.add_argument("--range-min", default=-5, type=float)
 parser.add_argument("--range-max", default=5, type=float)
@@ -73,7 +76,7 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
                       offset, update_fn, seeds):
     seeds = np.arange(seeds)
 
-    results = {"updated_with_trend_on_shifted_data_fprs": [], "updated_no_trend_on_shifted_data_fprs": []}
+    rates = {"updated_with_trend_on_shifted_data": create_empty_rates(), "updated_no_trend_on_shifted_data": create_empty_rates()}
 
     for seed in seeds:
         set_seed(seed)
@@ -95,52 +98,57 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, m0, m1, 
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test_shifted)
-        initial_shifted_tnr, initial_shifted_fpr, initial_shifted_fnr, initial_shifted_tpr = eval_model(y_test_shifted,
-                                                                                                        y_pred)
+        y_prob = model.predict_proba(x_test_shifted)
+        initial_rates = compute_all_rates(y_test_shifted, y_pred, y_prob)
 
         new_model, rates_updated_no_trend_evaluated_trend = update_fn(model, x_train, y_train, x_update_no_trend,
                                                                       y_update_no_trend, x_test_shifted, y_test_shifted,
                                                                       num_updates, intermediate=True)
 
-        new_model, rates_update_trend_evaluated_trend = update_fn(model, x_train, y_train,
+        new_model, rates_updated_trend_evaluated_trend = update_fn(model, x_train, y_train,
                                                                   x_update_trend, y_update_trend,
                                                                   x_test_shifted, y_test_shifted,
                                                                   num_updates, intermediate=True)
 
-        results["updated_no_trend_on_shifted_data_fprs"].append(
-            [initial_shifted_fpr] + rates_updated_no_trend_evaluated_trend["fpr"])
-        results["updated_with_trend_on_shifted_data_fprs"].append(
-            [initial_shifted_fpr] + rates_update_trend_evaluated_trend["fpr"])
+        for key in rates_updated_no_trend_evaluated_trend.keys():
+            rates["updated_no_trend_on_shifted_data"][key].append([initial_rates[key]] +
+                                                                       rates_updated_no_trend_evaluated_trend[key])
+            rates["updated_with_trend_on_shifted_data"][key].append([initial_rates[key]] +
+                                                                         rates_updated_trend_evaluated_trend[key])
 
-    return results
+    return rates
 
 
 def results_to_dataframe(results, offset):
-    data = {"type": [], "fpr": [], "num_updates": []}
+    data = {"display_type": [], "rate": [], "num_updates": [], "type": []}
 
-    for t in results.keys():
-        for i in range(len(results[t])):
-            if t == "updated_no_trend_on_shifted_data_fprs":
-                data["type"] += ["Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on " + "$Q^{{ {} }}".format(
-                    offset) + "_{\mathrm{test}}(x)$"] * len(results[t][i])
-            elif t == "updated_with_trend_on_shifted_data_fprs":
-                data["type"] += ["Updated Model\nwith" + "$Q^{{ {} }}".format(
-                    offset) + "_{\mathrm{update}}(x)$ \nTested on " + "$Q^{{ {} }}".format(
-                    offset) + "_{\mathrm{test}}(x)$"] * len(results[t][i])
-            data["fpr"] += results[t][i]
-            data["num_updates"] += np.arange(len(results[t][i])).tolist()
+    for stage in results.keys():
+        for key in results[stage].keys():
+            for i in range(len(results[stage][key])):
+                if stage == "updated_no_trend_on_shifted_data":
+                    data["display_type"] += ["Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on " + "$Q^{{ {} }}".format(
+                        offset) + "_{\mathrm{test}}(x)$" + " - {}".format(key)] * len(results[stage][key][i])
+                elif stage == "updated_with_trend_on_shifted_data":
+                    data["display_type"] += ["Updated Model\nwith" + "$Q^{{ {} }}".format(
+                        offset) + "_{\mathrm{update}}(x)$ \nTested on " + "$Q^{{ {} }}".format(
+                        offset) + "_{\mathrm{test}}(x)$" + " - {}".format(key)] * len(results[stage][key][i])
+
+                data["type"] += [key] * len(results[stage][key][i])
+                data["rate"] += results[stage][key][i]
+                data["num_updates"] += np.arange(len(results[stage][key][i])).tolist()
 
     return pd.DataFrame(data)
 
 
-def plot(data, labels, num_updates, plot_path):
+def plot(data, rate_types, num_updates, plot_path):
     fig = plt.figure(figsize=(13, 9))
 
     ax = fig.add_subplot(111)
 
-    g = sns.lineplot(x="num_updates", y="fpr", hue="type", legend="full", data=data, ax=ax, palette="bright")
+    g = sns.lineplot(x="num_updates", y="rate", hue="display_type", legend="full", data=data.loc[data["type"].isin(rate_types)],
+                     ax=ax, palette="bright")
 
-    ax.set_ylabel("FPR", fontsize=30, labelpad=10.0)
+    ax.set_ylabel("Rate", fontsize=30, labelpad=10.0)
     ax.set_xlabel("Num Updates", fontsize=30, labelpad=10.0)
 
     ax.tick_params(axis='both', which='major', labelsize=24)
@@ -153,7 +161,6 @@ def plot(data, labels, num_updates, plot_path):
     legend.texts[0].set_size(20)
 
     fig.show()
-    fig.savefig("{}.{}".format(plot_path, "png"), bbox_extra_artists=(legend,), bbox_inches='tight', dpi=600)
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_extra_artists=(legend,), bbox_inches='tight')
 
 
@@ -185,10 +192,10 @@ def main(args):
                                          uniform_range, offset, update_fn, args.seeds)
     data_negative = results_to_dataframe(results_negative, "neg")
 
-    labels = ["Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{pos}}_{\mathrm{test}}(x)$"] + [
-        "Updated Model\nwith $Q^{\mathrm{pos}}_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{pos}}_{\mathrm{test}}(x)$"] + [
-                 "Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{neg}}_{\mathrm{test}}(x)$"] + [
-                 "Updated Model\nwith $Q^{\mathrm{neg}}_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{neg}}_{\mathrm{test}}(x)$"]
+    # labels = ["Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{pos}}_{\mathrm{test}}(x)$"] + [
+    #     "Updated Model\nwith $Q^{\mathrm{pos}}_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{pos}}_{\mathrm{test}}(x)$"] + [
+    #              "Updated Model\nwith $P_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{neg}}_{\mathrm{test}}(x)$"] + [
+    #              "Updated Model\nwith $Q^{\mathrm{neg}}_{\mathrm{update}}(x)$ \nTested on $Q^{\mathrm{neg}}_{\mathrm{test}}(x)$"]
 
     data = pd.concat([data_positive, data_negative])
 
@@ -197,7 +204,7 @@ def main(args):
     plot_path = os.path.join(results_dir, plot_file_name)
 
     create_file_path(plot_path)
-    plot(data, labels, args.num_updates, plot_path)
+    plot(data, args.rate_types, args.num_updates, plot_path)
 
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)

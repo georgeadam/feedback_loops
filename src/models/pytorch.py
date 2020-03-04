@@ -1,18 +1,18 @@
 import torch
 import torch.nn as nn
 
-from src.utils.losses import EWC
+from src.utils.losses import EWC, WeightedCE
 
 
 class StandardModel(nn.Module):
     def __init__(self, iterations=1000):
         super(StandardModel, self).__init__()
 
-        self.criterion = torch.nn.CrossEntropyLoss()
         self.iterations = iterations
-        self.device = "cpu:0"
+        self.device = "cuda:0"
+        self.criterion = WeightedCE(self.device)
 
-    def fit(self, x, y):
+    def fit(self, x, y, weights=None):
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).long()
         x = x.to(self.device)
         y = y.to(self.device)
@@ -20,20 +20,20 @@ class StandardModel(nn.Module):
         for i in range(self.iterations):
             out = self.forward(x)
 
-            loss = self.criterion(out, y)
+            loss = self.criterion(out, y, weights)
             loss.backward()
 
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-    def partial_fit(self, x, y, *args, **kwargs):
+    def partial_fit(self, x, y, weights=None, *args, **kwargs):
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).long()
         x = x.to(self.device)
         y = y.to(self.device)
 
         out = self.forward(x)
 
-        loss = self.criterion(out, y)
+        loss = self.criterion(out, y, weights)
         loss.backward()
 
         self.optimizer.step()
@@ -142,25 +142,40 @@ class LREWC(EWCModel):
 
 
 class NN(StandardModel):
-    def __init__(self, num_features, iterations=1000, lr=0.01):
+    def __init__(self, num_features, iterations=1000, lr=0.01, hidden_layers=1, activation="relu"):
         super(NN, self).__init__(iterations=iterations)
 
+        self.num_features = num_features
         self.device = "cuda:0"
-        self.fc1 = nn.Linear(num_features, 10).to(self.device)
-        self.fc2 = nn.Linear(10, num_features).to(self.device)
+        self.fc = None
+        self._create_layers(hidden_layers)
 
-        self.activation = nn.Tanh()
+        self.activation = getattr(nn, activation)()
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        self.optimizer = torch.optim.SGD(self.parameters(), lr=lr)
 
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.activation(x)
+        for i in range(len(self.fc) - 1):
+            x = self.fc[i](x)
+            x = self.activation(x)
 
-        x = self.fc2(x)
+        x = self.fc[-1](x)
 
         return x
+
+    def _create_layers(self, hidden_layers):
+        if hidden_layers == 0:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 2).to(self.device)])
+        elif hidden_layers == 1:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 10).to(self.device),
+                                    nn.Linear(10, 2).to(self.device)])
+        elif hidden_layers == 2:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 20).to(self.device),
+                                     nn.Linear(20, 10).to(self.device),
+                                     nn.Linear(10, 2).to(self.device)])
+
+
 
 
 

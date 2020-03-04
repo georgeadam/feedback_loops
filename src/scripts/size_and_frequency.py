@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import importlib
 
 from src.utils.data import get_data_fn
-from src.utils.metrics import eval_model
+from src.utils.metrics import eval_model, compute_all_rates
+from src.utils.misc import create_empty_rates
 from src.utils.model import get_model_fn
 from src.utils.update import get_update_fn
 from src.utils.rand import set_seed
@@ -38,6 +39,8 @@ parser.add_argument("--s1", default=1.0, type=float)
 parser.add_argument("--p0", default=0.5, type=float)
 parser.add_argument("--p1", default=0.5, type=float)
 
+parser.add_argument("--rate-types", default=["fpr"], nargs="+")
+
 parser.add_argument("--sizes", default=[500, 1000, 2500, 5000, 10000], nargs="+")
 parser.add_argument("--noise", default=0.0, type=float)
 
@@ -50,7 +53,7 @@ parser.add_argument("--update-type", default="feedback_confidence", type=str)
 
 def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, data_fn, update_fn, noise, seeds):
     seeds = np.arange(seeds)
-    results = {size: {"fpr": [], "fnr": [], "tpr": [], "tnr": []} for size in sizes}
+    rates = {size: create_empty_rates() for size in sizes}
 
     for seed in seeds:
         for size in sizes:
@@ -63,21 +66,20 @@ def train_update_loop(model_fn, n_train, n_test, sizes, num_features, updates, d
             model.fit(x_train, y_train)
 
             y_pred = model.predict(x_test)
-            initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
+            y_prob = model.predict_proba(x_test)
+            initial_rates = compute_all_rates(y_test, y_pred, y_prob)
 
-            new_model, rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, updates, intermediate=True)
+            new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, updates, intermediate=True)
 
-            results[size]["fpr"].append([initial_fpr] + rates["fpr"])
-            results[size]["fnr"].append([initial_fnr] + rates["fnr"])
-            results[size]["tpr"].append([initial_tpr] + rates["tpr"])
-            results[size]["tnr"].append([initial_tnr] + rates["tnr"])
+            for key in updated_rates.keys():
+                rates[size][key].append([initial_rates[key]] + updated_rates[key])
 
-    return results
+    return rates
 
 
 def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, data_fn, noise, seeds):
     seeds = np.arange(seeds)
-    results = {"fpr": [], "fnr": [], "tpr": [], "tnr": []}
+    results = create_empty_rates()
 
     for seed in seeds:
         np.random.seed(seed)

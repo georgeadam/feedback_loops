@@ -15,6 +15,10 @@ def get_update_fn(args):
         return update_model_full_fit_feedback
     elif args.update_type == "no_feedback_full_fit":
         return update_model_full_fit_no_feedback
+    elif args.update_type == "no_feedback_full_fit_weighted":
+        return update_model_no_feedback_weighted_full_fit
+    elif args.update_type == "feedback_full_fit_weighted":
+        return update_model_feedback_weighted_full_fit
 
 
 def update_model_no_feedback(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
@@ -372,7 +376,7 @@ def update_model_full_fit_no_feedback(model, x_train, y_train, x_update, y_updat
 
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
 
-    return new_model, None
+    return new_model, rates
 
 
 def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
@@ -420,6 +424,97 @@ def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update
         sub_y[fp_idx] = 1
 
         new_model.partial_fit(sub_x, sub_y, classes)
+
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
+        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
+
+    return new_model, rates
+
+
+def update_model_no_feedback_weighted_full_fit(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
+                                      intermediate=False, threshold=None, dynamic_desired_rate=None, dynamic_desired_value=None):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+
+    size = float(len(y_update)) / float(num_updates)
+
+    cumulative_x = None
+    cumulative_y = None
+
+    rates = create_empty_rates()
+    meta_weights = np.array(np.ones(len(x_train)))
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        if cumulative_x is None:
+            cumulative_x = sub_x
+            cumulative_y = sub_y
+        else:
+            cumulative_x = np.concatenate((sub_x, cumulative_x))
+            cumulative_y = np.concatenate((sub_y, cumulative_y))
+
+        weights = np.concatenate((np.ones(len(cumulative_x)), np.ones(len(x_train))))
+        meta_weights = np.concatenate((np.zeros(len(sub_x)), meta_weights))
+        meta_weights += 1
+        cur_weights = weights / meta_weights
+
+        new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), cur_weights)
+
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
+        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
+
+    return new_model, rates
+
+
+def update_model_feedback_weighted_full_fit(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
+                                            intermediate=False, threshold=None, dynamic_desired_rate=None,
+                                            dynamic_desired_value=None):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+
+    size = float(len(y_update)) / float(num_updates)
+
+    cumulative_x = None
+    cumulative_y = None
+
+    rates = create_empty_rates()
+    meta_weights = np.array(np.ones(len(x_train)))
+
+    for i in range(num_updates):
+        idx_start = int(size * i)
+        idx_end = int(size * (i + 1))
+        sub_x = x_update[idx_start: idx_end, :]
+        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+
+        sub_pred = new_model.predict(sub_x)
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
+
+        if cumulative_x is None:
+            cumulative_x = sub_x
+            cumulative_y = sub_y
+        else:
+            cumulative_x = np.concatenate((sub_x, cumulative_x))
+            cumulative_y = np.concatenate((sub_y, cumulative_y))
+
+        weights = np.concatenate((np.ones(len(cumulative_x)), np.ones(len(x_train))))
+        meta_weights = np.concatenate((np.zeros(len(sub_x)), meta_weights))
+        meta_weights += 1
+        cur_weights = weights / meta_weights
+
+        new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)), cur_weights)
 
         sub_prob = new_model.predict_proba(x_train)
 

@@ -12,7 +12,8 @@ import importlib
 
 from src.models.sklearn import lr
 from src.utils.data import get_data_fn
-from src.utils.metrics import eval_model
+from src.utils.metrics import eval_model, compute_all_rates
+from src.utils.misc import create_empty_rates
 from src.utils.model import get_model_fn
 from src.utils.update import update_model_feedback_with_training, update_model_feedback_with_training_cumulative
 from src.utils.rand import set_seed
@@ -27,7 +28,7 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="gaussian", choices=["gaussian", "sklearn", "mimic"], type=str)
-parser.add_argument("--seeds", default=100, type=int)
+parser.add_argument("--seeds", default=10, type=int)
 parser.add_argument("--model", default="lr_pytorch", type=str)
 
 parser.add_argument("--n-train", default=1000, type=float)
@@ -46,6 +47,8 @@ parser.add_argument("--p1", default=0.5, type=float)
 parser.add_argument("--train-percentages", default=[0.0, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                     nargs="+")
 
+parser.add_argument("--rate-types", default=["fpr"], nargs="+")
+
 parser.add_argument("--lr", default=1.0, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=1.0, type=float)
@@ -53,8 +56,10 @@ parser.add_argument("--importance", default=1.0, type=float)
 
 def train_update_loop(model_fn, n_train, n_update, n_test, update_fn, num_updates, num_features, train_percentages, data_fn, seeds):
     seeds = np.arange(seeds)
-    updated_results = {train_percentage: {"fpr": [], "tpr": [], "fnr": [], "tnr": []} for train_percentage in
+    rates = {train_percentage: create_empty_rates() for train_percentage in
                        train_percentages}
+    stats = {train_percentage: {"initial": create_empty_rates(), "updated": create_empty_rates()}
+             for train_percentage in train_percentages}
 
     for seed in seeds:
         print(seed)
@@ -66,7 +71,8 @@ def train_update_loop(model_fn, n_train, n_update, n_test, update_fn, num_update
         model.fit(x_train, y_train)
 
         y_pred = model.predict(x_test)
-        initial_tnr, initial_fpr, initial_fnr, initial_tpr = eval_model(y_test, y_pred)
+        y_prob = model.predict_proba(x_test)
+        initial_rates = compute_all_rates(y_test, y_pred, y_prob)
 
         for train_percentage in train_percentages:
             if train_percentage == 0.0:
@@ -78,15 +84,15 @@ def train_update_loop(model_fn, n_train, n_update, n_test, update_fn, num_update
             else:
                 x_train_sub, _, y_train_sub, __ = train_test_split(x_train, y_train, test_size=1 - train_percentage)
 
-            new_model, rates = update_fn(model, x_train_sub, y_train_sub, x_update, y_update, x_test, y_test,
+            new_model, updated_rates = update_fn(model, x_train_sub, y_train_sub, x_update, y_update, x_test, y_test,
                                          num_updates, intermediate=True)
 
-            updated_results[train_percentage]["fpr"].append([initial_fpr] + rates["fpr"])
-            updated_results[train_percentage]["tpr"].append([initial_tpr] + rates["tpr"])
-            updated_results[train_percentage]["fnr"].append([initial_fnr] + rates["fnr"])
-            updated_results[train_percentage]["tnr"].append([initial_tnr] + rates["tnr"])
+            for key in updated_rates.keys():
+                rates[train_percentage][key].append([initial_rates[key]] + updated_rates[key])
+                stats[train_percentage]["initial"].append(initial_rates[key])
 
-    return updated_results
+
+    return rates
 
 
 def results_to_dataframe(results, train_percentages, seeds):
@@ -103,14 +109,14 @@ def results_to_dataframe(results, train_percentages, seeds):
     return pd.DataFrame(data)
 
 
-def plot(data, num_updates, train_percentages, plot_path):
+def plot(data, rate_types, num_updates, train_percentages, plot_path):
     fig = plt.figure(figsize=(13, 9))
     ax = fig.add_subplot(111)
     g = sns.lineplot(x="update", y="rate", hue="train_percentage",
-                     data=data.loc[data["type"] == "fpr"], legend="full", ax=ax)
+                     data=data.loc[data["type"].isin(rate_types)], legend="full", ax=ax)
 
     ax.set_xlabel("Num Updates", size=30, labelpad=10.0)
-    ax.set_ylabel("FPR", size=30, labelpad=10.0)
+    ax.set_ylabel("Rate", size=30, labelpad=10.0)
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
 
@@ -119,7 +125,6 @@ def plot(data, num_updates, train_percentages, plot_path):
     legend = ax.legend(title="Train %", title_fontsize=24, labels=train_percentages, loc="upper left")
     legend.texts[0].set_size(20)
 
-    fig.savefig("{}.{}".format(plot_path, "png"), bbox_inches='tight', dpi=600)
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
@@ -147,7 +152,7 @@ def main(args):
     plot_path = os.path.join(results_dir, plot_file_name)
 
     create_file_path(plot_path)
-    plot(data_non_cumulative, args.num_updates, args.train_percentages, plot_path)
+    plot(data_non_cumulative, args.rate_types, args.num_updates, args.train_percentages, plot_path)
 
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
@@ -165,7 +170,7 @@ def main(args):
     plot_path = os.path.join(results_dir, plot_file_name)
 
     create_file_path(plot_path)
-    plot(data_cumulative, args.num_updates, args.train_percentages, plot_path)
+    plot(data_cumulative, args.rate_types, args.num_updates, args.train_percentages, plot_path)
 
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)

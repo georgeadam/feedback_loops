@@ -19,7 +19,7 @@ def get_model_fn(args):
     elif args.model == "lr_ewc":
         return wrapped(LREWC, lr=args.lr, iterations=args.iterations, importance=args.importance)
     elif args.model == "nn":
-        return wrapped(NN, lr=args.lr, iterations=args.iterations)
+        return wrapped(NN, lr=args.lr, iterations=args.iterations, hidden_layers=args.hidden_layers, activation=args.activation)
     elif args.model == "svm_rbf":
         return rbf_svm
     elif args.model == "random_forest":

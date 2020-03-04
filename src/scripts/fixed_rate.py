@@ -22,25 +22,28 @@ from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_sco
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2", "gaussian"], type=str)
-parser.add_argument("--seeds", default=10, type=int)
+parser.add_argument("--seeds", default=5, type=int)
 parser.add_argument("--model", default="nn", type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
-parser.add_argument("--num-updates", default=500, type=int)
+parser.add_argument("--num-updates", default=100, type=int)
 parser.add_argument("--num-features", default=20, type=int)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
-parser.add_argument("--dynamic-desired-rate", default="fnr", type=str)
+parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
-parser.add_argument("--rate-types", default=["precision", "recall", "fpr", "fnr"], nargs="+")
+parser.add_argument("--rate-types", default=["auc", "fpr", "fnr"], nargs="+")
 
 parser.add_argument("--lr", default=0.1, type=float)
 parser.add_argument("--iterations", default=1000, type=int)
 parser.add_argument("--importance", default=100000.0, type=float)
+
+parser.add_argument("--hidden-layers", default=1, type=int)
+parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--update-type", default="no_feedback", type=str)
@@ -69,13 +72,21 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_feat
             model.fit(x_train, y_train)
 
         y_prob = model.predict_proba(x_train)
-        threshold = find_threshold(y_train, y_prob, initial_desired_rate, initial_desired_value)
+
+        if initial_desired_rate is not None:
+            threshold = find_threshold(y_train, y_prob, initial_desired_rate, initial_desired_value)
+        else:
+            threshold = 0.5
 
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
 
         initial_rates = compute_all_rates(y_test, y_pred, y_prob)
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
+
+        y_prob = model.predict_proba(x_train)
+        y_pred = y_prob[:, 1] > threshold
+        temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
+        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, temp_train_rates)
 
         new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
                                           intermediate=True, threshold=threshold,
@@ -104,7 +115,10 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desire
         model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
         y_prob = model.predict_proba(np.concatenate((x_train, x_update)))
 
-        threshold = find_threshold(np.concatenate((y_train, y_update)), y_prob, desired_rate, desired_value)
+        if desired_rate is not None:
+            threshold = find_threshold(np.concatenate((y_train, y_update)), y_prob, desired_rate, desired_value)
+        else:
+            threshold = 0.5
 
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
@@ -173,7 +187,7 @@ def plot_rates(data, rate_types, gs_lines, title, plot_path):
     fig.suptitle(title)
 
     legend = ax.legend(title="Rate Type", title_fontsize=30,
-                       loc="upper left")
+                       loc="upper right")
     legend.texts[0].set_size(24)
 
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')

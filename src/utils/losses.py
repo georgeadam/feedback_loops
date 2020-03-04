@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import copy
 import torch.nn.functional as F
@@ -44,4 +45,20 @@ class EWC(object):
         for n, p in model.named_parameters():
             _loss = self._precision_matrices[n] * (p - self._means[n]) ** 2
             loss += _loss.sum()
+        return loss
+
+
+class WeightedCE(object):
+    def __init__(self, device):
+        self.ce = torch.nn.CrossEntropyLoss(reduction="none")
+        self.device = device
+
+    def __call__(self, input, target, weight):
+        loss = self.ce(input, target)
+
+        if weight is not None and len(weight) == len(input):
+            loss = torch.mean(loss * torch.from_numpy(weight).float().to(self.device))
+        else:
+            loss = torch.mean(loss)
+
         return loss
