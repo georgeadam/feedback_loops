@@ -2,27 +2,26 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
+
+from src.scripts.helpers.generic import train_update_loop, gold_standard_loop
+
 sns.set()
 import matplotlib.pyplot as plt
 
 from src.utils.data import get_data_fn
-from src.utils.misc import create_empty_rates
-from src.utils.metrics import eval_model, compute_all_rates
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
-from src.utils.update import get_update_fn, find_threshold
-from src.utils.rand import set_seed
+from src.utils.update import get_update_fn
 from src.utils.save import create_file_path, save_json, CONFIG_FILE, STATS_FILE
 from src.utils.time import get_timestamp
 
 from argparse import ArgumentParser
 from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
-from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2", "gaussian"], type=str)
-parser.add_argument("--seeds", default=10, type=int)
+parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="nn", type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
@@ -34,107 +33,19 @@ parser.add_argument("--num-features", default=20, type=int)
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
-parser.add_argument("--dynamic-desired-rate", default="fpr", type=str)
+parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
 parser.add_argument("--rate-types", default=["auc", "fpr", "fnr", "tnr"], nargs="+")
 
-parser.add_argument("--lr", default=0.1, type=float)
-parser.add_argument("--iterations", default=250, type=int)
+parser.add_argument("--lr", default=0.01, type=float)
+parser.add_argument("--iterations", default=2500, type=int)
 parser.add_argument("--importance", default=100000.0, type=float)
 
 parser.add_argument("--hidden-layers", default=0, type=int)
 parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
-parser.add_argument("--update-type", default="feedback", type=str)
-
-
-def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_features,
-                      initial_desired_rate, initial_desired_value, dynamic_desired_rate, data_fn, update_fn, bad_model,
-                      seeds):
-    seeds = np.arange(seeds)
-
-    rates = create_empty_rates()
-
-    stats = {"updated": {key: [] for key in rates.keys()},
-             "initial": {key: [] for key in rates.keys()}}
-
-    for seed in seeds:
-        print(seed)
-        set_seed(seed)
-
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
-                                                                       num_features=num_features)
-
-        model = model_fn(num_features=x_train.shape[1])
-
-        if not bad_model:
-            model.fit(x_train, y_train)
-
-        y_prob = model.predict_proba(x_train)
-
-        if initial_desired_rate is not None:
-            threshold = find_threshold(y_train, y_prob, initial_desired_rate, initial_desired_value)
-        else:
-            threshold = 0.5
-
-        y_prob = model.predict_proba(x_test)
-        y_pred = y_prob[:, 1] > threshold
-
-        initial_rates = compute_all_rates(y_test, y_pred, y_prob)
-
-        y_prob = model.predict_proba(x_train)
-        y_pred = y_prob[:, 1] > threshold
-        temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, temp_train_rates)
-
-        new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                          intermediate=True, threshold=threshold,
-                                          dynamic_desired_rate=dynamic_desired_rate,
-                                          dynamic_desired_value=dynamic_desired_value)
-
-        for key in rates.keys():
-            rates[key].append([initial_rates[key]] + updated_rates[key])
-            stats["initial"][key].append(initial_rates[key])
-            stats["updated"][key].append(updated_rates[key][-1])
-
-    return rates, stats
-
-
-def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desired_rate, desired_value, data_fn, seeds):
-    seeds = np.arange(seeds)
-    rates = create_empty_rates()
-
-    for seed in seeds:
-        np.random.seed(seed)
-
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
-                                                                       num_features=num_features)
-
-        model = model_fn(num_features=x_train.shape[1])
-        model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
-        y_prob = model.predict_proba(np.concatenate((x_train, x_update)))
-
-        if desired_rate is not None:
-            threshold = find_threshold(np.concatenate((y_train, y_update)), y_prob, desired_rate, desired_value)
-        else:
-            threshold = 0.5
-
-        y_prob = model.predict_proba(x_test)
-        y_pred = y_prob[:, 1] > threshold
-        gold_standard_rates = compute_all_rates(y_test, y_pred, y_prob)
-
-        for key in rates.keys():
-            rates[key].append(gold_standard_rates[key])
-
-    return rates
-
-
-def get_dyanmic_desired_value(desired_dynamic_rate, rates):
-    if desired_dynamic_rate is not None:
-        return rates[desired_dynamic_rate]
-
-    return None
+parser.add_argument("--update-type", default="feedback_online_single_batch", type=str)
 
 
 def results_to_dataframe(rates):
