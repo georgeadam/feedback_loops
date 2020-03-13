@@ -7,7 +7,7 @@ from src.utils.update import find_threshold
 
 
 def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_features,
-                      initial_desired_rate, initial_desired_value, dynamic_desired_rate, data_fn, update_fn, bad_model,
+                      initial_desired_rate, initial_desired_value, dynamic_desired_rate, data_fn, update_fn, bad_model, worst_case,
                       seeds):
     seeds = np.arange(seeds)
 
@@ -27,6 +27,7 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_feat
 
         if not bad_model:
             model.fit(x_train, y_train)
+            loss = model.evaluate(x_test, y_test)
 
         y_prob = model.predict_proba(x_train)
 
@@ -35,10 +36,20 @@ def train_update_loop(model_fn, n_train, n_update, n_test, num_updates, num_feat
         else:
             threshold = 0.5
 
+        if worst_case:
+            update_y_prob = model.predict_proba(x_update)
+            update_y_pred = update_y_prob[:, 1] > threshold
+
+            update_fps = np.logical_and(update_y_pred == 1, y_update == 0).astype(int)
+            sorted_idx = np.argsort(-update_fps)
+            x_update = x_update[sorted_idx]
+            y_update = y_update[sorted_idx]
+
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
 
         initial_rates = compute_all_rates(y_test, y_pred, y_prob)
+        initial_rates["loss"] = loss
 
         y_prob = model.predict_proba(x_train)
         y_pred = y_prob[:, 1] > threshold
@@ -70,6 +81,7 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desire
 
         model = model_fn(num_features=x_train.shape[1])
         model.fit(np.concatenate((x_train, x_update)), np.concatenate((y_train, y_update)))
+        loss = model.evaluate(x_test, y_test)
         y_prob = model.predict_proba(np.concatenate((x_train, x_update)))
 
         if desired_rate is not None:
@@ -80,6 +92,7 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desire
         y_prob = model.predict_proba(x_test)
         y_pred = y_prob[:, 1] > threshold
         gold_standard_rates = compute_all_rates(y_test, y_pred, y_prob)
+        gold_standard_rates["loss"] = loss
 
         for key in rates.keys():
             rates[key].append(gold_standard_rates[key])
