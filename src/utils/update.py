@@ -14,51 +14,64 @@ def wrapped(fn, **kwargs):
     return inside
 
 
-def get_update_fn(args):
-    if args.update_type == "feedback_online_single_batch":
+def get_update_fn(update_type):
+    if update_type == "feedback_online_single_batch":
         return wrapped(update_model_generic, cumulative_data=False, include_train=False, weighted=False,
                        full_fit=False, feedback=True)
-    elif args.update_type == "feedback_online_all_update_data":
+    elif update_type == "feedback_online_all_update_data":
         return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=False,
                        full_fit=False, feedback=True)
-    elif args.update_type == "feedback_online_all_data":
+    elif update_type == "feedback_online_all_data":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
                        full_fit=False, feedback=True)
-    elif args.update_type == "feedback_full_fit":
+    elif update_type == "feedback_full_fit":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
                 full_fit=True, feedback=True)
-    elif args.update_type == "feedback_online_all_update_data_weighted":
+    elif update_type == "feedback_online_all_update_data_weighted":
         return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=True,
                        full_fit=False, feedback=True)
-    elif args.update_type == "feedback_online_all_data_weighted":
+    elif update_type == "feedback_online_all_data_weighted":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
                        full_fit=False, feedback=True)
-    elif args.update_type == "feedback_full_fit_weighted":
+    elif update_type == "feedback_full_fit_weighted":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
                 full_fit=True, feedback=True)
-    elif args.update_type == "no_feedback_online_single_batch":
+    elif update_type == "no_feedback_online_single_batch":
         return wrapped(update_model_generic, cumulative_data=False, include_train=False, weighted=False,
                        full_fit=False, feedback=False)
-    elif args.update_type == "no_feedback_online_all_update_data":
+    elif update_type == "no_feedback_online_all_update_data":
         return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=False,
                        full_fit=False, feedback=False)
-    elif args.update_type == "no_feedback_online_all_data":
+    elif update_type == "no_feedback_online_all_data":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
                        full_fit=False, feedback=False)
-    elif args.update_type == "no_feedback_full_fit":
-        wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
+    elif update_type == "no_feedback_full_fit":
+        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
                 full_fit=True, feedback=False)
-    elif args.update_type == "no_feedback_online_all_update_data_weighted":
+    elif update_type == "no_feedback_online_all_update_data_weighted":
         return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=True,
                        full_fit=False, feedback=False)
-    elif args.update_type == "no_feedback_online_all_data_weighted":
+    elif update_type == "no_feedback_online_all_data_weighted":
         return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
                        full_fit=False, feedback=False)
-    elif args.update_type == "no_feedback_full_fit_weighted":
-        wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
+    elif update_type == "no_feedback_full_fit_weighted":
+        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
                 full_fit=True, feedback=False)
-    elif args.update_type == "feedback_online_confidence":
+    elif update_type == "feedback_online_confidence":
         return update_model_feedback_confidence
+
+
+def map_update_type(update_type):
+    if update_type.startswith("feedback_online_single_batch"):
+        return "ssrd"
+    elif update_type.startswith("feedback_online_all_update_data"):
+        return "ssad"
+    elif update_type.startswith("feedback_online_all_data"):
+        return "ssad-t"
+    elif update_type.startswith("feedback_full_fit"):
+        return "cad"
+    elif update_type.startswith("no_feedback"):
+        return "no_feedback"
 
 
 def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
@@ -284,7 +297,12 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         sub_y = copy.deepcopy(y_update[idx_start: idx_end])
 
         if feedback:
-            sub_pred = new_model.predict(sub_x)
+            if threshold is not None:
+                sub_pred = new_model.predict_proba(sub_x)
+                sub_pred = sub_pred[:, 1] > threshold
+            else:
+                sub_pred = new_model.predict(sub_x)
+
             fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
             sub_y[fp_idx] = 1
 
@@ -325,7 +343,9 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         if dynamic_desired_rate is not None:
             threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
 
+        loss = new_model.evaluate(x_test, y_test)
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
+        rates["loss"].append(loss)
 
     return new_model, rates
 
@@ -342,7 +362,8 @@ def append_rates(intermediate, new_model, rates, threshold, x_test, y_test):
         updated_rates = compute_all_rates(y_test, new_pred, pred_prob)
 
         for key in rates.keys():
-            rates[key].append(updated_rates[key])
+            if key in updated_rates.keys():
+                rates[key].append(updated_rates[key])
 
 
 def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):

@@ -64,6 +64,7 @@ def compute_all_rates(y, y_pred, y_prob):
     recall = recall_score(y, y_pred)
     f1 = f1_score(y, y_pred)
 
-    rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1, "auc": auc}
+    rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
+             "auc": auc, "loss": None}
 
     return rates
