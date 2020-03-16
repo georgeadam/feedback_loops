@@ -18,12 +18,14 @@ def get_data_fn(args):
             return generate_gaussian_dataset()
     elif args.data_type == "sklearn":
         return generate_sklearn_make_classification_dataset
-    elif args.data_type == "mimic":
-        return generate_real_dataset(load_mimiciii_data)
+    elif args.data_type == "mimic_iii":
+        return generate_real_dataset(load_mimic_iii_data, args.sorted)
+    elif args.data_type == "mimic_iv":
+        return generate_real_dataset(load_mimic_iv_data, args.sorted)
     elif args.data_type == "moons":
         return generate_moons_dataset
     elif args.data_type == "support2":
-        return generate_real_dataset(load_support2cls_data)
+        return generate_real_dataset(load_support2cls_data, args.sorted)
 
 
 def perturb_labels_fp(y, rate=0.05):
@@ -145,7 +147,7 @@ def generate_gaussian_quantile_dataset(n_train, n_update, n_test, num_features=2
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def load_mimiciii_data():
+def load_mimic_iii_data():
     df_adult = pd.read_csv(os.path.join(ROOT_DIR, 'adult_icu.gz'), compression='gzip')
 
     train_cols = [
@@ -170,25 +172,39 @@ def load_mimiciii_data():
         'problem': 'classification',
         'X': X_df,
         'y': y_df,
-        'd_name': 'mimiciii',
+        'd_name': 'mimic_iii',
     }
 
     return dataset
 
 
-def generate_real_dataset(fn):
+def generate_real_dataset(fn, sorted=False):
     data = fn()
 
     float_cols = []
+    year_idx = None
 
     for i, column in enumerate(data["X"].columns):
         if "float" in str(data["X"][column].dtype):
             float_cols.append(i)
+        elif column == "year":
+            year_idx = i
 
     float_cols = np.array(float_cols)
 
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
+
+    if sorted:
+        sort_idx = np.argsort(x["year"])
+        x = x[sort_idx]
+        y = y[sort_idx]
+
+    nan_idx = np.where(np.isnan(x))[0]
+    x = np.delete(x, nan_idx, 0)
+    y = np.delete(y, nan_idx, 0)
+
+    print("a")
 
     def wrapped(n_train, n_update, n_test, **kwargs):
         n_train = int(len(y) * n_train)
@@ -204,6 +220,9 @@ def generate_real_dataset(fn):
         x_train[:, float_cols] = (x_train[:, float_cols] - data_mean) / data_std
         x_update[:, float_cols] = (x_update[:, float_cols] - data_mean) / data_std
         x_test[:, float_cols] = (x_test[:, float_cols] - data_mean) / data_std
+
+        # if year_idx is not None:
+        #     np.delete(x, year_idx, 1)
 
         return x_train, y_train, x_update, y_update, x_test, y_test
 
@@ -232,6 +251,34 @@ def load_support2cls_data():
         'X': X_df,
         'y': y_df,
         'd_name': 'support2cls',
+    }
+
+    return dataset
+
+
+def load_mimic_iv_data():
+    df_adult = pd.read_csv(os.path.join(ROOT_DIR, 'mimic_iv_datasets_with_year_imputed.csv'))
+
+    train_cols = [
+        'year',
+        'HeartRate_Min', 'HeartRate_Max', 'HeartRate_Mean', 'SysBP_Min',
+        'SysBP_Max', 'SysBP_Mean', 'DiasBP_Min', 'DiasBP_Max', 'DiasBP_Mean',
+        'MeanBP_Min', "MeanBP_Max", "MeanBP_Mean", "RespRate_Min", "RespRate_Max",
+        "RespRate_Mean", "TempC_Min", "TempC_Max", "TempC_Mean", "SpO2_Min", "SpO2_Max",
+        "SpO2_Mean", "Glucose_Min", "Glucose_Max", "Glucose_Mean", "ANIONGAP", "ALBUMIN",
+        "BICARBONATE", "BILIRUBIN", "CREATININE", "CHLORIDE", "GLUCOSE", "HEMATOCRIT",
+        "HEMOGLOBIN", "LACTATE", "MAGNESIUM", "PHOSPHATE", "PLATELET", "POTASSIUM", "PTT",
+        "INR", "PT", "SODIUM", "BUN", "WBC"]
+
+    label = 'mort_icu'
+    X_df = df_adult[train_cols]
+    y_df = df_adult[label]
+
+    dataset = {
+        'problem': 'classification',
+        'X': X_df,
+        'y': y_df,
+        'd_name': 'mimic_iv',
     }
 
     return dataset

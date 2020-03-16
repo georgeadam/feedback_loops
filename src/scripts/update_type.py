@@ -20,7 +20,7 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2", "gaussian"], type=str)
+parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=10, type=int)
 parser.add_argument("--model", default="nn", type=str)
 
@@ -50,7 +50,7 @@ parser.add_argument("--hidden-layers", default=0, type=int)
 parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
-parser.add_argument("--worst-case", default=True, type=str2bool)
+parser.add_argument("--worst-case", default=False, type=str2bool)
 parser.add_argument("--update-types", default=["feedback_online_single_batch",
                                                "feedback_online_all_update_data",
                                                "feedback_online_all_data",

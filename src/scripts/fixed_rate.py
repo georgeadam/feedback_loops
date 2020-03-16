@@ -20,15 +20,16 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic", choices=["mimic", "support2", "gaussian"], type=str)
-parser.add_argument("--seeds", default=10, type=int)
-parser.add_argument("--model", default="nn", type=str)
+parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
+parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--model", default="lr", type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
 parser.add_argument("--num-updates", default=100, type=int)
 parser.add_argument("--num-features", default=20, type=int)
+parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
@@ -53,7 +54,7 @@ parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
 parser.add_argument("--update-type", default="feedback_full_fit", type=str)
 
-parser.add_argument("--save-dir", default="figures/paper/auc_importance", type=str)
+parser.add_argument("--save-dir", default="figures/temp", type=str)
 
 
 def results_to_dataframe(rates):
