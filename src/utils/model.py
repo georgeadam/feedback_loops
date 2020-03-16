@@ -1,4 +1,4 @@
-from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest
+from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost
 from src.models.pytorch import NN
 
 
@@ -23,6 +23,8 @@ def get_model_fn(args):
         return random_forest
     elif args.model == "adaboost":
         return adaboost
+    elif args.model == "xgboost":
+        return xgboost
 
 
 def get_model_fn_specific_args(model, **kwargs):

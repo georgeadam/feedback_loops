@@ -6,72 +6,80 @@ from src.utils.metrics import compute_all_rates
 
 
 def wrapped(fn, **kwargs):
-    def inside(model, x_train, y_train, x_update, y_update, x_test, y_test,
-                                  num_updates, **specified_args):
-        return fn(model, x_train, y_train, x_update, y_update, x_test, y_test,
-                                  num_updates, **kwargs, **specified_args)
+    def inside(*args, **specified_args):
+        return fn(*args, **kwargs, **specified_args)
 
     return inside
 
 
-def get_update_fn(update_type):
+def get_update_fn(update_type, temporal=False):
+    if temporal:
+        update_fn = update_model_temporal
+    else:
+        update_fn = update_model_generic
+
     if update_type == "feedback_online_single_batch":
-        return wrapped(update_model_generic, cumulative_data=False, include_train=False, weighted=False,
+        return wrapped(update_fn, cumulative_data=False, include_train=False, weighted=False,
                        full_fit=False, feedback=True)
     elif update_type == "feedback_online_all_update_data":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=False, weighted=False,
                        full_fit=False, feedback=True)
     elif update_type == "feedback_online_all_data":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=False,
                        full_fit=False, feedback=True)
     elif update_type == "feedback_full_fit":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=False,
                 full_fit=True, feedback=True)
     elif update_type == "feedback_online_all_update_data_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=False, weighted=True,
                        full_fit=False, feedback=True)
     elif update_type == "feedback_online_all_data_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=True,
                        full_fit=False, feedback=True)
     elif update_type == "feedback_full_fit_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=True,
                 full_fit=True, feedback=True)
     elif update_type == "no_feedback_online_single_batch":
-        return wrapped(update_model_generic, cumulative_data=False, include_train=False, weighted=False,
+        return wrapped(update_fn, cumulative_data=False, include_train=False, weighted=False,
                        full_fit=False, feedback=False)
     elif update_type == "no_feedback_online_all_update_data":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=False, weighted=False,
                        full_fit=False, feedback=False)
     elif update_type == "no_feedback_online_all_data":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=False,
                        full_fit=False, feedback=False)
     elif update_type == "no_feedback_full_fit":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=False,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=False,
                 full_fit=True, feedback=False)
     elif update_type == "no_feedback_online_all_update_data_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=False, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=False, weighted=True,
                        full_fit=False, feedback=False)
     elif update_type == "no_feedback_online_all_data_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=True,
                        full_fit=False, feedback=False)
     elif update_type == "no_feedback_full_fit_weighted":
-        return wrapped(update_model_generic, cumulative_data=True, include_train=True, weighted=True,
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=True,
                 full_fit=True, feedback=False)
     elif update_type == "feedback_online_confidence":
         return update_model_feedback_confidence
+    elif update_type == "evaluate":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weighted=True,
+                       full_fit=True, feedback=False, update=False)
 
 
 def map_update_type(update_type):
     if update_type.startswith("feedback_online_single_batch"):
         return "ssrd"
     elif update_type.startswith("feedback_online_all_update_data"):
-        return "ssad"
+        return "ssad-nt"
     elif update_type.startswith("feedback_online_all_data"):
         return "ssad-t"
     elif update_type.startswith("feedback_full_fit"):
         return "cad"
     elif update_type.startswith("no_feedback"):
         return "no_feedback"
+    elif update_type.startswith("evaluate"):
+        return "static"
 
 
 def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
@@ -345,6 +353,84 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
 
         loss = new_model.evaluate(x_test, y_test)
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
+        rates["loss"].append(loss)
+
+    return new_model, rates
+
+
+def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_year_limit=1999, update_year_limit=2019,
+                          cumulative_data=False, include_train=False, weighted=False, full_fit=False,
+                          feedback=False, update=True, intermediate=False, threshold=None, dynamic_desired_rate=None,
+                          dynamic_desired_value=None):
+    np.random.seed(1)
+    new_model = copy.deepcopy(model)
+
+    cumulative_x = None
+    cumulative_y = None
+
+    rates = create_empty_rates()
+
+    if include_train:
+        meta_weights = np.array(np.ones(len(x_train)))
+    else:
+        meta_weights = np.array([]).astype(float)
+
+    for year in range(train_year_limit + 1, update_year_limit):
+        sub_idx = years == year
+        test_idx = years == year + 1
+        sub_x = x_rest[sub_idx]
+        sub_y = copy.deepcopy(y_rest[sub_idx])
+
+        if feedback:
+            if threshold is not None:
+                sub_pred = new_model.predict_proba(sub_x)
+                sub_pred = sub_pred[:, 1] > threshold
+            else:
+                sub_pred = new_model.predict(sub_x)
+
+            fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+            sub_y[fp_idx] = 1
+
+        if cumulative_x is None or not cumulative_data:
+            cumulative_x = sub_x
+            cumulative_y = sub_y
+        else:
+            cumulative_x = np.concatenate((sub_x, cumulative_x))
+            cumulative_y = np.concatenate((sub_y, cumulative_y))
+
+        if weighted:
+            if include_train:
+                weights = np.concatenate((np.ones(len(cumulative_x)), np.ones(len(x_train))))
+            else:
+                weights = np.ones(len(cumulative_x))
+
+            meta_weights = np.concatenate((np.zeros(len(sub_x)), meta_weights))
+            meta_weights += 1
+            cur_weights = weights / meta_weights
+        else:
+            cur_weights = None
+
+        if update:
+            if include_train:
+                if full_fit:
+                    new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
+                                  cur_weights)
+                else:
+                    new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
+                                  cur_weights)
+            else:
+                if full_fit:
+                    new_model.fit(cumulative_x, cumulative_y, cur_weights)
+                else:
+                    new_model.partial_fit(cumulative_x, cumulative_y, cur_weights)
+
+        sub_prob = new_model.predict_proba(x_train)
+
+        if dynamic_desired_rate is not None:
+            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+
+        loss = new_model.evaluate(x_rest[test_idx], y_rest[test_idx])
+        append_rates(intermediate, new_model, rates, threshold, x_rest[test_idx], y_rest[test_idx])
         rates["loss"].append(loss)
 
     return new_model, rates
