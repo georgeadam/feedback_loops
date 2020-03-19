@@ -21,21 +21,23 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
-parser.add_argument("--seeds", default=10, type=int)
-parser.add_argument("--model", default="nn", type=str)
+parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--warm-start", default=False, type=str2bool)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
-parser.add_argument("--num-updates", default=100, type=int)
+parser.add_argument("--num-updates", default=20, type=int)
 parser.add_argument("--num-features", default=20, type=int)
+parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
-parser.add_argument("--rate-types", default=["fpr"], nargs="+")
+parser.add_argument("--rate-types", default=["auc"], nargs="+")
 # parser.add_argument("--rate-types", default=["loss"], nargs="+")
 
 parser.add_argument("--lr", default=0.01, type=float)
@@ -51,11 +53,11 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["feedback_online_single_batch",
-                                               "feedback_online_all_update_data",
-                                               "feedback_online_all_data",
-                                               "feedback_full_fit",
-                                               "no_feedback_full_fit"], type=str)
+parser.add_argument("--update-types", default=["feedback_full_fit",
+                                               "no_feedback_full_fit",
+                                               "feedback_full_fit_drop",
+                                               "no_feedback_full_fit_drop",
+                                               "evaluate"], type=str)
 
 parser.add_argument("--save-dir", default="figures/paper/update_type", type=str)
 

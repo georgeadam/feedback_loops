@@ -11,9 +11,9 @@ def wrapped(fn, **kwargs):
 
 def get_model_fn(args):
     if args.model == "lr":
-        return lr
+        return wrapped(lr, warm_start=args.warm_start)
     elif args.model == "linear_svm":
-        return linear_svm
+        return wrapped(linear_svm, warm_start=args.warm_start)
     elif args.model == "nn":
         return wrapped(NN, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations, optimizer_name=args.optimizer,
                        reset_optim=args.reset_optim, tol=args.tol, hidden_layers=args.hidden_layers, activation=args.activation)
@@ -24,7 +24,7 @@ def get_model_fn(args):
     elif args.model == "adaboost":
         return adaboost
     elif args.model == "xgboost":
-        return xgboost
+        return wrapped(xgboost, warm_start=args.warm_start)
 
 
 def get_model_fn_specific_args(model, **kwargs):

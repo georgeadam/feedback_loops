@@ -20,9 +20,11 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
+parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--warm-start", default=False, type=str2bool)
+parser.add_argument("--balanced", default=False, type=str2bool)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)

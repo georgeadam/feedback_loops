@@ -4,16 +4,16 @@ import sklearn.naive_bayes as naive_bayes
 import sklearn.svm as svm
 
 
-def lr(num_features=2, class_weight=None):
-    model = linear_model.LogisticRegression(max_iter=10000, tol=1e-3, warm_start=True, class_weight=class_weight,
+def lr(num_features=2, class_weight=None, warm_start=True):
+    model = linear_model.LogisticRegression(max_iter=10000, tol=1e-3, warm_start=warm_start, class_weight=class_weight,
                                             penalty="none")
     model.evaluate = evaluate
 
     return model
 
 
-def linear_svm(num_features=2, class_weight=None):
-    model = linear_model.SGDClassifier(max_iter=10000, tol=1e-3, warm_start=True, loss="hinge", class_weight=class_weight)
+def linear_svm(num_features=2, class_weight=None, warm_start=True):
+    model = linear_model.SGDClassifier(max_iter=10000, tol=1e-3, warm_start=warm_start, loss="hinge", class_weight=class_weight)
     model.evaluate = evaluate
 
     return model
@@ -40,8 +40,8 @@ def adaboost(num_features=2, class_weight=None):
     return model
 
 
-def xgboost(num_features=2, class_weight=None):
-    model = ensemble.GradientBoostingClassifier()
+def xgboost(num_features=2, class_weight=None, warm_start=True):
+    model = ensemble.GradientBoostingClassifier(warm_start=warm_start)
     model.evaluate = evaluate
 
     return model
