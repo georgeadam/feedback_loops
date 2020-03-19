@@ -25,18 +25,16 @@ parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--warm-start", default=False, type=str2bool)
 
-parser.add_argument("--n-train", default=0.1, type=percentage)
-parser.add_argument("--n-update", default=0.7, type=percentage)
-parser.add_argument("--n-test", default=0.2, type=percentage)
-parser.add_argument("--num-updates", default=100, type=int)
 parser.add_argument("--num-features", default=20, type=int)
-parser.add_argument("--sorted", default=False, type=str2bool)
 parser.add_argument("--train-year-limit", default=1999, type=int)
 parser.add_argument("--update-year-limit", default=2019, type=int)
+parser.add_argument("--next-year", default=False, type=str2bool)
+parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
-parser.add_argument("--initial-desired-value", default=0.2, type=float)
+parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
@@ -51,14 +49,17 @@ parser.add_argument("--iterations", default=3000, type=int)
 parser.add_argument("--importance", default=100000.0, type=float)
 parser.add_argument("--tol", default=0.0001, type=float)
 
-parser.add_argument("--hidden-layers", default=2, type=int)
+parser.add_argument("--hidden-layers", default=0, type=int)
 parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
 parser.add_argument("--update-types", default=["feedback_full_fit",
                                                "no_feedback_full_fit",
+                                               "feedback_full_fit_confidence",
+                                               "no_feedback_full_fit_confidence",
                                                "evaluate"], type=str)
+
 
 parser.add_argument("--save-dir", default="figures/paper/figure_1", type=str)
 
@@ -69,9 +70,8 @@ from src.utils.rand import set_seed
 from src.utils.update import find_threshold
 
 
-def train_update_loop(model_fn, train_year_limit, update_year_limit,
-                      initial_desired_rate, initial_desired_value, dynamic_desired_rate, data_fn, update_fn, bad_model,
-                      seeds):
+def train_update_loop(model_fn, train_year_limit, update_year_limit, initial_desired_rate, initial_desired_value,
+                      dynamic_desired_rate, data_fn, update_fn, bad_model, next_year, seeds):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -92,7 +92,11 @@ def train_update_loop(model_fn, train_year_limit, update_year_limit,
         x_train, y_train = x[train_idx], y[train_idx]
         x_rest, y_rest = x[~train_idx], y[~train_idx]
 
-        eval_idx = x[:, 0] == train_year_limit + 1
+        if next_year:
+            eval_idx = x[:, 0] == train_year_limit + 1
+        else:
+            eval_idx = x[:, 0] == update_year_limit
+
         x_eval, y_eval = x[eval_idx],  y[eval_idx]
 
         if not bad_model:
@@ -122,6 +126,7 @@ def train_update_loop(model_fn, train_year_limit, update_year_limit,
         x_rest = np.delete(x_rest, 0, 1)
 
         new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years, train_year_limit, update_year_limit,
+                                             next_year=next_year,
                                              intermediate=True, threshold=threshold,
                                              dynamic_desired_rate=dynamic_desired_rate,
                                              dynamic_desired_value=dynamic_desired_value)
@@ -219,17 +224,21 @@ def main(args):
     model_fn = get_model_fn(args)
 
     rates = {}
+    stats = {}
 
     for update_type in args.update_types:
         update_fn = get_update_fn(update_type, temporal=True)
-        temp_rates, _ = train_update_loop(model_fn, args.train_year_limit, args.update_year_limit,
+        temp_rates, temp_stats = train_update_loop(model_fn, args.train_year_limit, args.update_year_limit,
                                          args.initial_desired_rate, args.initial_desired_value,
                                          args.dynamic_desired_rate,
-                                         data_fn, update_fn, args.bad_model,
+                                         data_fn, update_fn, args.bad_model, args.next_year,
                                          args.seeds)
         rates[update_type] = temp_rates
+        stats[update_type] = temp_stats
 
     data = results_to_dataframe(rates, args.train_year_limit, args.update_year_limit)
+    for update_type in args.update_types:
+        stats[update_type] = summarize_stats(stats[update_type])
 
     plot_name = "{}_{}".format(args.data_type, args.rate_types)
     plot_file_name = "{}_{}".format(plot_name, timestamp)
@@ -243,6 +252,10 @@ def main(args):
     config_file_name = CONFIG_FILE.format(plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
+
+    stats_file_name = STATS_FILE.format(plot_name,  timestamp)
+    stats_path = os.path.join(results_dir, stats_file_name)
+    save_json(stats, stats_path)
 
 
 if __name__ == "__main__":
