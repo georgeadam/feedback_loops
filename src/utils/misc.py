@@ -1,6 +1,6 @@
 def create_empty_rates():
     return {"fpr": [], "tpr": [], "fnr": [], "tnr": [], "precision": [], "recall": [], "f1": [], "auc": [],
-            "loss": []}
+            "loss": [], "aupr": [], "fp_conf": [], "pos_conf": []}
 
 
 def capitalize(s):

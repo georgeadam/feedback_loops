@@ -11,16 +11,16 @@ def wrapped(fn, **kwargs):
 
 def get_model_fn(args):
     if args.model == "lr":
-        return wrapped(lr, warm_start=args.warm_start)
+        return wrapped(lr, warm_start=args.warm_start, class_weight=args.class_weight)
     elif args.model == "linear_svm":
-        return wrapped(linear_svm, warm_start=args.warm_start)
+        return wrapped(linear_svm, warm_start=args.warm_start, class_weight=args.class_weight)
     elif args.model == "nn":
         return wrapped(NN, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations, optimizer_name=args.optimizer,
                        reset_optim=args.reset_optim, tol=args.tol, hidden_layers=args.hidden_layers, activation=args.activation)
     elif args.model == "svm_rbf":
         return rbf_svm
     elif args.model == "random_forest":
-        return random_forest
+        return wrapped(random_forest, class_weight=args.class_weight)
     elif args.model == "adaboost":
         return adaboost
     elif args.model == "xgboost":

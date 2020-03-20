@@ -26,11 +26,12 @@ parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mi
 parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
+parser.add_argument("--class-weight", default=None, type=str)
 
 parser.add_argument("--num-features", default=20, type=int)
 parser.add_argument("--train-year-limit", default=1999, type=int)
 parser.add_argument("--update-year-limit", default=2019, type=int)
-parser.add_argument("--next-year", default=False, type=str2bool)
+parser.add_argument("--next-year", default=True, type=str2bool)
 parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
@@ -38,7 +39,7 @@ parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
-parser.add_argument("--rate-types", default=["auc"], nargs="+")
+parser.add_argument("--rate-types", default=["fp_conf", "pos_conf"], nargs="+")
 # parser.add_argument("--rate-types", default=["loss"], nargs="+")
 
 parser.add_argument("--lr", default=0.01, type=float)
@@ -54,14 +55,16 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["feedback_full_fit",
-                                               "no_feedback_full_fit",
-                                               "feedback_full_fit_confidence",
-                                               "no_feedback_full_fit_confidence",
-                                               "evaluate"], type=str)
+# parser.add_argument("--update-types", default=["feedback_full_fit",
+#                                                "no_feedback_full_fit",
+#                                                "feedback_full_fit_confidence",
+#                                                "no_feedback_full_fit_confidence",
+#                                                "evaluate"], type=str)
+parser.add_argument("--update-types", default=["feedback_full_fit"], type=str)
 
 
 parser.add_argument("--save-dir", default="figures/paper/figure_1", type=str)
+parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
 from src.utils.metrics import compute_all_rates
@@ -173,7 +176,7 @@ def plot_rates(data, rate_types, update_types, title, plot_path):
     fig = plt.figure(figsize=(13, 9))
     ax = fig.add_subplot(111)
     g = sns.lineplot(x="year", y="rate", hue="update_type", data=data.loc[data["rate_type"].isin(rate_types)],
-                     err_style="band", ax=ax, ci="sd", palette="bright", marker="o")
+                     err_style="band", ax=ax, style="rate_type" ,ci="sd", palette="bright", marker="o")
 
     ax.set_xlabel("Year", size=30, labelpad=10.0)
     ax.set_ylabel(rate_types[0].upper(), size=30, labelpad=10.0)
@@ -197,8 +200,7 @@ def plot_rates(data, rate_types, update_types, title, plot_path):
 
     # legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30,
     #                    loc="upper right", bbox_to_anchor=(1.30, 1), borderaxespad=0.)
-    legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30,
-                       loc="lower left", borderaxespad=0.)
+    legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30, borderaxespad=0.)
 
     legend.texts[0].set_size(24)
 
@@ -240,8 +242,13 @@ def main(args):
     for update_type in args.update_types:
         stats[update_type] = summarize_stats(stats[update_type])
 
-    plot_name = "{}_{}".format(args.data_type, args.rate_types)
-    plot_file_name = "{}_{}".format(plot_name, timestamp)
+    plot_name = "{}_{}_{}_{}_{}_{}".format(args.data_type, args.model, args.train_year_limit, args.update_year_limit, args.next_year, args.rate_types)
+
+    if args.file_name == "timestamp":
+        plot_file_name = "{}_{}".format(plot_name, timestamp)
+    else:
+        plot_file_name = "{}_{}".format(plot_name, "")
+
     plot_path = os.path.join(results_dir, plot_file_name)
 
     plot_title = ""
@@ -249,11 +256,19 @@ def main(args):
     create_file_path(plot_path)
     plot_rates(data, args.rate_types, args.update_types, plot_title, plot_path)
 
-    config_file_name = CONFIG_FILE.format(plot_name, timestamp)
+    if args.file_name == "timestamp":
+        config_file_name = CONFIG_FILE.format(plot_name, timestamp)
+    else:
+        config_file_name = CONFIG_FILE.format(plot_name, "")
+
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    stats_file_name = STATS_FILE.format(plot_name,  timestamp)
+    if args.file_name == "timestamp":
+        stats_file_name = STATS_FILE.format(plot_name,  timestamp)
+    else:
+        stats_file_name = STATS_FILE.format(plot_name, "")
+
     stats_path = os.path.join(results_dir, stats_file_name)
     save_json(stats, stats_path)
 

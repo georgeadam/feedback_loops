@@ -21,10 +21,10 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
-parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--seeds", default=10, type=int)
 parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
-parser.add_argument("--balanced", default=False, type=str2bool)
+parser.add_argument("--class-weight", default=None, type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
@@ -38,7 +38,7 @@ parser.add_argument("--initial-desired-value", default=0.1, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
-parser.add_argument("--rate-types", default=["auc", "fpr", "fnr", "tnr"], nargs="+")
+parser.add_argument("--rate-types", default=["fp_conf", "pos_conf"], nargs="+")
 # parser.add_argument("--rate-types", default=["loss"], nargs="+")
 
 parser.add_argument("--lr", default=0.01, type=float)
@@ -54,9 +54,10 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-type", default="feedback_full_fit", type=str)
+parser.add_argument("--update-type", default="evaluate", type=str)
 
 parser.add_argument("--save-dir", default="figures/temp", type=str)
+parser.add_argument("--file-name", default="intuitive", type=str, choices=["timestamp", "intuitive"])
 
 
 def results_to_dataframe(rates):
@@ -151,8 +152,14 @@ def main(args):
     stats["gold_standard"] = gold_standard
     stats = summarize_stats(stats)
 
-    plot_name = "{}_{}".format(args.data_type, args.rate_types)
-    plot_file_name = "{}_{}".format(plot_name, timestamp)
+
+    plot_name = "{}_{}_{}".format(args.data_type, args.model, args.rate_types)
+
+    if args.file_name == "timestamp":
+        plot_file_name = "{}_{}".format(plot_name, timestamp)
+    else:
+        plot_file_name = "{}_{}".format(plot_name, "")
+
     plot_path = os.path.join(results_dir, plot_file_name)
 
     plot_title = ""
@@ -160,11 +167,19 @@ def main(args):
     create_file_path(plot_path)
     plot_rates(data, args.rate_types, {key: np.mean(gold_standard[key]) for key in args.rate_types}, args.num_updates, plot_title, plot_path)
 
-    config_file_name = CONFIG_FILE.format(plot_name, timestamp)
+    if args.file_name == "timestamp":
+        config_file_name = CONFIG_FILE.format(plot_name, timestamp)
+    else:
+        config_file_name = CONFIG_FILE.format(plot_name, "")
+
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    stats_file_name = STATS_FILE.format(plot_name,  timestamp)
+    if args.file_name == "timestamp":
+        stats_file_name = STATS_FILE.format(plot_name, timestamp)
+    else:
+        stats_file_name = STATS_FILE.format(plot_name, "")
+
     stats_path = os.path.join(results_dir, stats_file_name)
     save_json(stats, stats_path)
 

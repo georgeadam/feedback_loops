@@ -24,6 +24,7 @@ parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "m
 parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
+parser.add_argument("--class-weight", default="balanced", type=str)
 
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
