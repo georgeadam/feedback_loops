@@ -329,7 +329,7 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         idx_end = int(size * (i + 1))
         sub_x = x_update[idx_start: idx_end, :]
         sub_y = copy.deepcopy(y_update[idx_start: idx_end])
-        sub_conf = model.predict_proba(sub_x)[:, 1]
+        sub_conf = new_model.predict_proba(sub_x)[:, 1]
 
         if feedback:
             if threshold is not None:
@@ -401,7 +401,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
 
         sub_x = x_rest[sub_idx]
         sub_y = copy.deepcopy(y_rest[sub_idx])
-        sub_conf = model.predict_proba(sub_x)[:, 1]
+        sub_conf = new_model.predict_proba(sub_x)[:, 1]
 
         if feedback:
             if threshold is not None:
@@ -411,6 +411,11 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
                 sub_pred = new_model.predict(sub_x)
 
             fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+            pos_idx = sub_y == 1
+
+            print("Confidence on positively labeled samples: {} +/- {}".format(np.median(sub_conf[pos_idx]), np.std(sub_conf[pos_idx])))
+            print("Confidence on false positively labeled samples: {} +/- {}".format(np.median(sub_conf[fp_idx]), np.std(sub_conf[fp_idx])))
+            print("Diff (fp - p): {}".format(np.median(sub_conf[fp_idx]) - np.median(sub_conf[pos_idx])))
             sub_y[fp_idx] = 1
 
         if cumulative_x is None or not cumulative_data:
