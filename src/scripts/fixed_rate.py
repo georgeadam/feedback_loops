@@ -9,6 +9,7 @@ sns.set()
 import matplotlib.pyplot as plt
 
 from src.utils.data import get_data_fn
+from src.utils.misc import create_config_file_name, create_plot_file_name, create_stats_file_name
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
 from src.utils.update import get_update_fn
@@ -152,34 +153,18 @@ def main(args):
     stats["gold_standard"] = gold_standard
     stats = summarize_stats(stats)
 
-
     plot_name = "{}_{}_{}".format(args.data_type, args.model, args.rate_types)
-
-    if args.file_name == "timestamp":
-        plot_file_name = "{}_{}".format(plot_name, timestamp)
-    else:
-        plot_file_name = "{}_{}".format(plot_name, "")
-
+    plot_file_name = create_plot_file_name(args.file_name, plot_name, timestamp)
     plot_path = os.path.join(results_dir, plot_file_name)
-
     plot_title = ""
-
     create_file_path(plot_path)
     plot_rates(data, args.rate_types, {key: np.mean(gold_standard[key]) for key in args.rate_types}, args.num_updates, plot_title, plot_path)
 
-    if args.file_name == "timestamp":
-        config_file_name = CONFIG_FILE.format(plot_name, timestamp)
-    else:
-        config_file_name = CONFIG_FILE.format(plot_name, "")
-
+    config_file_name = create_config_file_name(args.file_name, plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    if args.file_name == "timestamp":
-        stats_file_name = STATS_FILE.format(plot_name, timestamp)
-    else:
-        stats_file_name = STATS_FILE.format(plot_name, "")
-
+    stats_file_name = create_stats_file_name(args.file_name, plot_name, timestamp)
     stats_path = os.path.join(results_dir, stats_file_name)
     save_json(stats, stats_path)
 

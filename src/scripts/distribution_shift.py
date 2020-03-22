@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import seaborn as sns
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import train_test_split
 
 sns.set_style("white")
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 from src.scripts.helpers.generic import get_dyanmic_desired_value
 from src.models.sklearn import evaluate
 from src.utils.data import get_data_fn
-from src.utils.misc import capitalize
+from src.utils.misc import capitalize, create_config_file_name, create_plot_file_name, create_stats_file_name
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
 from src.utils.update import get_update_fn, map_update_type
@@ -24,7 +25,7 @@ from settings import ROOT_DIR
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
-parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--model", default="lr", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 
@@ -36,10 +37,11 @@ parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
+parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 
-parser.add_argument("--rate-types", default=["fp_conf", "pos_conf"], nargs="+")
+parser.add_argument("--rate-types", default=["auc"], nargs="+")
 # parser.add_argument("--rate-types", default=["loss"], nargs="+")
 
 parser.add_argument("--lr", default=0.01, type=float)
@@ -55,12 +57,7 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-# parser.add_argument("--update-types", default=["feedback_full_fit",
-#                                                "no_feedback_full_fit",
-#                                                "feedback_full_fit_confidence",
-#                                                "no_feedback_full_fit_confidence",
-#                                                "evaluate"], type=str)
-parser.add_argument("--update-types", default=["feedback_full_fit"], type=str)
+parser.add_argument("--update-type", default="drop", type=str)
 
 
 parser.add_argument("--save-dir", default="figures/paper/figure_1", type=str)
@@ -74,7 +71,8 @@ from src.utils.update import find_threshold
 
 
 def train_update_loop(model_fn, train_year_limit, update_year_limit, initial_desired_rate, initial_desired_value,
-                      dynamic_desired_rate, data_fn, update_fn, bad_model, next_year, seeds):
+                      threshold_validation_percentage, dynamic_desired_rate, data_fn, update_fn, bad_model,
+                      next_year, seeds):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -102,14 +100,20 @@ def train_update_loop(model_fn, train_year_limit, update_year_limit, initial_des
 
         x_eval, y_eval = x[eval_idx],  y[eval_idx]
 
+        if threshold_validation_percentage > 0:
+            x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = train_test_split(x_train, y_train, stratify=y_train,
+                                                                                          test_size=threshold_validation_percentage)
+        else:
+            x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = x_train, x_train, y_train, y_train
+
         if not bad_model:
-            model.fit(x_train[:, 1:], y_train)
+            model.fit(x_train_fit[:, 1:], y_train_fit)
             loss = model.evaluate(x_eval[:, 1:], y_eval)
 
-        y_prob = model.predict_proba(x_train[:, 1:])
+        y_prob = model.predict_proba(x_threshold_fit[:, 1:])
 
         if initial_desired_rate is not None:
-            threshold = find_threshold(y_train, y_prob, initial_desired_rate, initial_desired_value)
+            threshold = find_threshold(y_threshold_fit, y_prob, initial_desired_rate, initial_desired_value)
         else:
             threshold = 0.5
 
@@ -228,47 +232,36 @@ def main(args):
     rates = {}
     stats = {}
 
-    for update_type in args.update_types:
+    update_types = ["feedback_full_fit", "no_feedback_full_fit",
+                    "feedback_full_fit_{}".format(args.update_type), "no_feedback_full_fit_{}".format(args.update_type),
+                    "evaluate"]
+
+    for update_type in update_types:
         update_fn = get_update_fn(update_type, temporal=True)
         temp_rates, temp_stats = train_update_loop(model_fn, args.train_year_limit, args.update_year_limit,
-                                         args.initial_desired_rate, args.initial_desired_value,
-                                         args.dynamic_desired_rate,
-                                         data_fn, update_fn, args.bad_model, args.next_year,
-                                         args.seeds)
+                                                   args.initial_desired_rate, args.initial_desired_value,
+                                                   args.threshold_validation_percentage,
+                                                   args.dynamic_desired_rate, data_fn, update_fn, args.bad_model, args.next_year,
+                                                   args.seeds)
         rates[update_type] = temp_rates
         stats[update_type] = temp_stats
 
     data = results_to_dataframe(rates, args.train_year_limit, args.update_year_limit)
-    for update_type in args.update_types:
+    for update_type in update_types:
         stats[update_type] = summarize_stats(stats[update_type])
 
     plot_name = "{}_{}_{}_{}_{}_{}".format(args.data_type, args.model, args.train_year_limit, args.update_year_limit, args.next_year, args.rate_types)
-
-    if args.file_name == "timestamp":
-        plot_file_name = "{}_{}".format(plot_name, timestamp)
-    else:
-        plot_file_name = "{}_{}".format(plot_name, "")
-
+    plot_file_name = create_plot_file_name(args.file_name, plot_name, timestamp)
     plot_path = os.path.join(results_dir, plot_file_name)
-
     plot_title = ""
-
     create_file_path(plot_path)
-    plot_rates(data, args.rate_types, args.update_types, plot_title, plot_path)
+    plot_rates(data, args.rate_types, update_types, plot_title, plot_path)
 
-    if args.file_name == "timestamp":
-        config_file_name = CONFIG_FILE.format(plot_name, timestamp)
-    else:
-        config_file_name = CONFIG_FILE.format(plot_name, "")
-
+    config_file_name = create_config_file_name(args.file_name, plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    if args.file_name == "timestamp":
-        stats_file_name = STATS_FILE.format(plot_name,  timestamp)
-    else:
-        stats_file_name = STATS_FILE.format(plot_name, "")
-
+    stats_file_name = create_stats_file_name(args.file_name, plot_name, timestamp)
     stats_path = os.path.join(results_dir, stats_file_name)
     save_json(stats, stats_path)
 

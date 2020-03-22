@@ -251,62 +251,6 @@ def update_model_increasing_trust(model, x_train, y_train, x_update, y_update, x
     return new_model, rates
 
 
-def update_model_feedback_confidence(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                     intermediate=False, threshold=None, drop_proportion=0.8,
-                                     dynamic_desired_rate=None, dynamic_desired_value=None):
-    np.random.seed(1)
-    new_model = copy.deepcopy(model)
-
-    size = float(len(y_update)) / float(num_updates)
-
-    classes = np.unique(y_update)
-
-    rates = create_empty_rates()
-
-    for i in range(num_updates):
-        idx_start = int(size * i)
-        idx_end = int(size * (i + 1))
-        sub_x = x_update[idx_start: idx_end, :]
-        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
-
-        sub_pred = new_model.predict(sub_x)
-        sub_prob = new_model.predict_proba(sub_x)
-
-        if len(sub_pred.shape) > 1 and sub_pred.shape[1] > 1:
-            sub_prob = sub_prob[np.arange(len(sub_prob)), sub_pred]
-        else:
-            sub_prob = sub_prob[np.arange(len(sub_prob)), sub_pred.astype(int)]
-
-        sorted_idx = np.argsort(sub_prob)
-
-        sub_prob = sub_prob[sorted_idx]
-        sub_pred = sub_pred[sorted_idx]
-        sub_y = sub_y[sorted_idx]
-        sub_x = sub_x[sorted_idx]
-
-        drop_idx = np.where(sub_pred == 1)[0]
-        drop_idx = drop_idx[: int(drop_proportion * len(drop_idx))]
-        keep_idx = np.delete(np.arange(len(sub_y)), drop_idx)
-
-        sub_pred = sub_pred[keep_idx]
-        sub_y = sub_y[keep_idx]
-        sub_x = sub_x[keep_idx]
-
-        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
-        sub_y[fp_idx] = 1
-
-        new_model.partial_fit(sub_x, sub_y, classes)
-
-        sub_prob = new_model.predict_proba(x_train)
-
-        if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
-
-        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
-
-    return new_model, rates
-
-
 def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_test,
                          num_updates, cumulative_data=False, include_train=False, weight_type=None, full_fit=False,
                          feedback=False, update=True, intermediate=False, threshold=None, dynamic_desired_rate=None,
@@ -315,12 +259,10 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
-
     cumulative_x = None
     cumulative_y = None
 
     rates = create_empty_rates()
-
     meta_weights = initialize_weights(weight_type, x_train, include_train)
     weights = initialize_weights(weight_type, x_train, include_train)
 
@@ -330,39 +272,11 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         sub_x = x_update[idx_start: idx_end, :]
         sub_y = copy.deepcopy(y_update[idx_start: idx_end])
         sub_conf = new_model.predict_proba(sub_x)[:, 1]
+        replace_labels(feedback, new_model, sub_x, sub_y, threshold)
 
-        if feedback:
-            if threshold is not None:
-                sub_pred = new_model.predict_proba(sub_x)
-                sub_pred = sub_pred[:, 1] > threshold
-            else:
-                sub_pred = new_model.predict(sub_x)
-
-            fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
-            sub_y[fp_idx] = 1
-
-        if cumulative_x is None or not cumulative_data:
-            cumulative_x = sub_x
-            cumulative_y = sub_y
-        else:
-            cumulative_x = np.concatenate((sub_x, cumulative_x))
-            cumulative_y = np.concatenate((sub_y, cumulative_y))
-
+        cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
         weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, threshold, include_train)
-
-        if update:
-            if include_train:
-                if full_fit:
-                    new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                                  weights)
-                else:
-                    new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                                  weights)
-            else:
-                if full_fit:
-                    new_model.fit(cumulative_x, cumulative_y, weights)
-                else:
-                    new_model.partial_fit(cumulative_x, cumulative_y, weights)
+        make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
 
         sub_prob = new_model.predict_proba(x_train)
 
@@ -402,44 +316,11 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
         sub_x = x_rest[sub_idx]
         sub_y = copy.deepcopy(y_rest[sub_idx])
         sub_conf = new_model.predict_proba(sub_x)[:, 1]
+        replace_labels(feedback, new_model, sub_x, sub_y, threshold)
 
-        if feedback:
-            if threshold is not None:
-                sub_pred = new_model.predict_proba(sub_x)
-                sub_pred = sub_pred[:, 1] > threshold
-            else:
-                sub_pred = new_model.predict(sub_x)
-
-            fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
-            pos_idx = sub_y == 1
-
-            print("Confidence on positively labeled samples: {} +/- {}".format(np.median(sub_conf[pos_idx]), np.std(sub_conf[pos_idx])))
-            print("Confidence on false positively labeled samples: {} +/- {}".format(np.median(sub_conf[fp_idx]), np.std(sub_conf[fp_idx])))
-            print("Diff (fp - p): {}".format(np.median(sub_conf[fp_idx]) - np.median(sub_conf[pos_idx])))
-            sub_y[fp_idx] = 1
-
-        if cumulative_x is None or not cumulative_data:
-            cumulative_x = sub_x
-            cumulative_y = sub_y
-        else:
-            cumulative_x = np.concatenate((sub_x, cumulative_x))
-            cumulative_y = np.concatenate((sub_y, cumulative_y))
-
+        cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
         weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, threshold, include_train)
-
-        if update:
-            if include_train:
-                if full_fit:
-                    new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                                  weights)
-                else:
-                    new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                                  weights)
-            else:
-                if full_fit:
-                    new_model.fit(cumulative_x, cumulative_y, weights)
-                else:
-                    new_model.partial_fit(cumulative_x, cumulative_y, weights)
+        make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
 
         sub_prob = new_model.predict_proba(x_train)
 
@@ -451,6 +332,31 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
         rates["loss"].append(loss)
 
     return new_model, rates
+
+
+def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0):
+    if feedback:
+        sub_pred = new_model.predict_proba(sub_x)
+        sub_pred = sub_pred[:, 1] > threshold
+
+        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
+        sub_y[fp_idx] = 1
+
+
+def make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train):
+    if update:
+        if include_train:
+            if full_fit:
+                new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
+                              weights)
+            else:
+                new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
+                                      weights)
+        else:
+            if full_fit:
+                new_model.fit(cumulative_x, cumulative_y, weights)
+            else:
+                new_model.partial_fit(cumulative_x, cumulative_y, weights)
 
 
 def append_rates(intermediate, new_model, rates, threshold, x_test, y_test):
@@ -530,21 +436,11 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
         meta_weights += 1
         weights = weights / meta_weights
     elif weight_type == "confidence":
-        if include_train:
-            weights = np.concatenate((np.ones(len(cumulative_x) - len(sub_y)), np.ones(len(x_train))))
-        else:
-            weights = np.ones(len(cumulative_x) - len(sub_y))
-
         sub_idx = sub_y == 0
         sub_weights = copy.deepcopy(sub_conf)
         sub_weights[sub_idx] = 1
         weights = np.concatenate([sub_weights, prev_weights])
     elif weight_type == "drop":
-        if include_train:
-            weights = np.concatenate((np.ones(len(cumulative_x) - len(sub_y)), np.ones(len(x_train))))
-        else:
-            weights = np.ones(len(cumulative_x) - len(sub_y))
-
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
         sorted_y = sub_y[sorted_idx]
@@ -561,11 +457,6 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
 
         weights = np.concatenate([sub_weights, prev_weights])
     elif weight_type == "partial_confidence":
-        if include_train:
-            weights = np.concatenate((np.ones(len(cumulative_x) - len(sub_y)), np.ones(len(x_train))))
-        else:
-            weights = np.ones(len(cumulative_x) - len(sub_y))
-
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
         sorted_y = sub_y[sorted_idx]
@@ -585,3 +476,14 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
         weights = None
 
     return weights
+
+
+def build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y):
+    if cumulative_x is None or not cumulative_data:
+        cumulative_x = sub_x
+        cumulative_y = sub_y
+    else:
+        cumulative_x = np.concatenate((sub_x, cumulative_x))
+        cumulative_y = np.concatenate((sub_y, cumulative_y))
+
+    return cumulative_x, cumulative_y
