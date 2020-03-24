@@ -10,6 +10,10 @@ from sklearn.model_selection import train_test_split
 from settings import ROOT_DIR
 
 
+STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2"]
+TEMPORAL_DATA_TYPES = ["mimic_iv"]
+
+
 def get_data_fn(args):
     if args.data_type == "gaussian":
         if hasattr(args, "m0"):

@@ -3,6 +3,8 @@ import numpy as np
 
 from src.utils.misc import create_empty_rates
 from src.utils.metrics import compute_all_rates
+from src.utils.rand import set_seed
+from src.utils.trust import full_trust, conditional_trust
 
 
 def wrapped(fn, **kwargs):
@@ -69,6 +71,12 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "feedback_full_fit_partial_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="partial_confidence",
                        full_fit=True, feedback=True)
+    elif update_type == "feedback_full_fit_oracle":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="oracle",
+                       full_fit=True, feedback=True)
+    elif update_type == "feedback_full_fit_conditional_trust":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
+                full_fit=True, feedback=True, trust_fn=conditional_trust)
     elif update_type == "no_feedback_full_fit_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="confidence",
                        full_fit=True, feedback=False)
@@ -102,6 +110,8 @@ def map_update_type(update_type):
         return "ssad-nt"
     elif update_type.startswith("feedback_online_all_data"):
         return "ssad-t"
+    elif update_type.startswith("feedback_full_fit_conditional_trust"):
+        return "cad_conditional_trust"
     elif update_type.startswith("feedback_full_fit"):
         return "cad"
     elif update_type.startswith("no_feedback"):
@@ -145,116 +155,10 @@ def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_te
     return new_model, rates
 
 
-def update_model_conditional_trust(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                   intermediate=False, threshold=None, physician_fpr=0.1,
-                                   dynamic_desired_rate=None, dynamic_desired_value=None):
-    np.random.seed(1)
-    new_model = copy.deepcopy(model)
-
-    size = float(len(y_update)) / float(num_updates)
-
-    classes = np.unique(y_update)
-
-    trust = None
-
-    trusts = []
-    rates = create_empty_rates()
-
-    for i in range(num_updates):
-        idx_start = int(size * i)
-        idx_end = int(size * (i + 1))
-        sub_x = x_update[idx_start: idx_end, :]
-        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
-
-        model_pred = new_model.predict(sub_x)
-        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
-        model_pred = copy.deepcopy(sub_y)
-        model_pred[model_fp_idx] = 1
-
-        if trust is None:
-            trust = 1 - float(len(model_fp_idx)) / float(len(sub_y))
-
-        trusts.append(trust)
-
-        physician_pred = copy.deepcopy(sub_y)
-        neg_idx = np.where(physician_pred == 0)[0]
-        physician_fp_idx = np.random.choice(neg_idx, int(physician_fpr * len(sub_y)))
-        physician_pred[physician_fp_idx] = 1
-
-        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
-
-        target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
-
-        new_model.partial_fit(sub_x, target, classes)
-        model_pred = new_model.predict(sub_x)
-        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
-
-        fpr = float(len(model_fp_idx)) / float(len(sub_y))
-
-        sub_prob = new_model.predict_proba(x_train)
-
-        if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
-
-        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
-
-        trust = 1 - fpr
-
-    return new_model, rates, trusts
-
-
-def update_model_increasing_trust(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                  intermediate=False, threshold=None, trusts=[], physician_fpr=0.1,
-                                  dynamic_desired_rate=None, dynamic_desired_value=None):
-    np.random.seed(1)
-    new_model = copy.deepcopy(model)
-
-    size = float(len(y_update)) / float(num_updates)
-
-    classes = np.unique(y_update)
-    rates = create_empty_rates()
-
-    for i in range(num_updates):
-        trust = trusts[i]
-
-        idx_start = int(size * i)
-        idx_end = int(size * (i + 1))
-        sub_x = x_update[idx_start: idx_end, :]
-        sub_y = copy.deepcopy(y_update[idx_start: idx_end])
-
-        model_pred = new_model.predict(sub_x)
-        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
-        model_pred = copy.deepcopy(sub_y)
-        model_pred[model_fp_idx] = 1
-
-        physician_pred = copy.deepcopy(sub_y)
-        neg_idx = np.where(physician_pred == 0)[0]
-
-        if len(neg_idx) > 0:
-            physician_fp_idx = np.random.choice(neg_idx, min(len(neg_idx), int(physician_fpr * len(sub_y))))
-            physician_pred[physician_fp_idx] = 1
-
-        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
-
-        target = bernoulli * model_pred + (1 - bernoulli) * physician_pred
-
-        new_model.partial_fit(sub_x, target, classes)
-        model_pred = new_model.predict(sub_x)
-
-        sub_prob = new_model.predict_proba(x_train)
-
-        if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
-
-        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
-
-    return new_model, rates
-
-
 def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_test,
                          num_updates, cumulative_data=False, include_train=False, weight_type=None, full_fit=False,
-                         feedback=False, update=True, intermediate=False, threshold=None, dynamic_desired_rate=None,
-                         dynamic_desired_value=None):
+                         feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0, threshold=None, dynamic_desired_rate=None,
+                         dynamic_desired_value=None, dynamic_desired_partition=None ):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
@@ -265,36 +169,46 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
     rates = create_empty_rates()
     meta_weights = initialize_weights(weight_type, x_train, include_train)
     weights = initialize_weights(weight_type, x_train, include_train)
+    initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for i in range(num_updates):
         idx_start = int(size * i)
         idx_end = int(size * (i + 1))
         sub_x = x_update[idx_start: idx_end, :]
         sub_y = copy.deepcopy(y_update[idx_start: idx_end])
+        sub_y_unmodified = copy.deepcopy(y_update[idx_start: idx_end])
         sub_conf = new_model.predict_proba(sub_x)[:, 1]
-        replace_labels(feedback, new_model, sub_x, sub_y, threshold)
 
+        if i == 0:
+            model_fpr = initial_fpr
+        else:
+            model_fpr = rates["fpr"][-1]
+
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
         cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
-        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, threshold, include_train)
+        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train)
         make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
 
-        sub_prob = new_model.predict_proba(x_train)
+        x_threshold_reset, y_threshold_reset = get_threshold_reset_data(cumulative_x, cumulative_y,
+                                                                        dynamic_desired_partition, x_train, y_train)
+
+        sub_prob = new_model.predict_proba(x_threshold_reset)
 
         if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+            threshold = find_threshold(y_threshold_reset, sub_prob, dynamic_desired_rate, dynamic_desired_value)
 
         loss = new_model.evaluate(x_test, y_test)
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
-        rates["loss"].append(loss)
+        rates["loss"][-1] = loss
 
     return new_model, rates
 
 
 def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_year_limit=1999, update_year_limit=2019,
                           cumulative_data=False, include_train=False, weight_type=None, full_fit=False,
-                          feedback=False, update=True, next_year=True, intermediate=False, threshold=None, dynamic_desired_rate=None,
-                          dynamic_desired_value=None):
-    np.random.seed(1)
+                          feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
+                          dynamic_desired_value=None, dynamic_desired_partition=None):
+    set_seed(1)
     new_model = copy.deepcopy(model)
 
     cumulative_x = None
@@ -304,6 +218,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
 
     meta_weights = initialize_weights(weight_type, x_train, include_train)
     weights = initialize_weights(weight_type, x_train, include_train)
+    initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for year in range(train_year_limit + 1, update_year_limit):
         sub_idx = years == year
@@ -315,33 +230,65 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
 
         sub_x = x_rest[sub_idx]
         sub_y = copy.deepcopy(y_rest[sub_idx])
+        sub_y_unmodified = copy.deepcopy(y_rest[sub_idx])
         sub_conf = new_model.predict_proba(sub_x)[:, 1]
-        replace_labels(feedback, new_model, sub_x, sub_y, threshold)
+
+        if year == train_year_limit + 1:
+            model_fpr = initial_fpr
+        else:
+            model_fpr = rates["fpr"][-1]
+
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
 
         cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
-        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, threshold, include_train)
+        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train)
         make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
 
-        sub_prob = new_model.predict_proba(x_train)
+        x_threshold_reset, y_threshold_reset = get_threshold_reset_data(cumulative_x, cumulative_y,
+                                                                        dynamic_desired_partition, x_train, y_train)
+        sub_prob = new_model.predict_proba(x_threshold_reset)
 
         if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_train, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+            threshold = find_threshold(y_threshold_reset, sub_prob, dynamic_desired_rate, dynamic_desired_value)
 
         loss = new_model.evaluate(x_rest[test_idx], y_rest[test_idx])
         append_rates(intermediate, new_model, rates, threshold, x_rest[test_idx], y_rest[test_idx])
-        rates["loss"].append(loss)
+        rates["loss"][-1] = (loss)
 
     return new_model, rates
 
 
-def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0):
+def compute_initial_fpr(model, threshold, x_train, y_train):
+    temp_prob = model.predict_proba(x_train)[:, 1]
+    temp_pred = temp_prob > threshold
+    initial_fps = np.logical_and(temp_pred == 1, y_train == 0)
+    initial_fpr = len(y_train[initial_fps]) / len(y_train)
+    return initial_fpr
+
+
+def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, model_fpr=0.2):
     if feedback:
-        sub_pred = new_model.predict_proba(sub_x)
-        sub_pred = sub_pred[:, 1] > threshold
+        model_pred = new_model.predict_proba(sub_x)
+        model_pred = model_pred[:, 1] > threshold
+        model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
+        model_pred = copy.deepcopy(sub_y)
+        model_pred[model_fp_idx] = 1
+    else:
+        model_pred = copy.deepcopy(sub_y)
 
-        fp_idx = np.logical_and(sub_y == 0, sub_pred == 1)
-        sub_y[fp_idx] = 1
 
+    trust = trust_fn(model_fpr)
+
+    clinician_pred = copy.deepcopy(sub_y)
+    neg_idx = np.where(clinician_pred == 0)[0]
+    physician_fp_idx = np.random.choice(neg_idx, min(int(clinician_fpr * len(sub_y)), len(neg_idx)))
+    clinician_pred[physician_fp_idx] = 1
+
+    bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
+
+    target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
+
+    return target
 
 def make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train):
     if update:
@@ -425,7 +372,7 @@ def initialize_weights(weight_type, x_train, include_train):
     return weights
 
 
-def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, sub_conf, sub_y, threshold, include_train):
+def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train):
     if weight_type == "linearly_decreasing":
         if include_train:
             weights = np.concatenate((np.ones(len(cumulative_x)), np.ones(len(x_train))))
@@ -472,6 +419,12 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
         sub_weights[pos_idx] = sub_conf[pos_idx]
 
         weights = np.concatenate([sub_weights, prev_weights])
+    elif weight_type == "oracle":
+        fp_idx = np.logical_and(sub_conf > threshold, sub_y_unmodified == 0)
+        sub_weights = np.ones(len(sub_y_unmodified))
+        sub_weights[fp_idx] = 0
+
+        weights = np.concatenate([sub_weights, prev_weights])
     else:
         weights = None
 
@@ -487,3 +440,11 @@ def build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, su
         cumulative_y = np.concatenate((sub_y, cumulative_y))
 
     return cumulative_x, cumulative_y
+
+
+def get_threshold_reset_data(cumulative_x, cumulative_y, dynamic_desired_partition, x_train, y_train):
+    if dynamic_desired_partition == "train":
+        x_threshold_reset, y_threshold_reset = x_train, y_train
+    else:
+        x_threshold_reset, y_threshold_reset = cumulative_x, cumulative_y
+    return x_threshold_reset, y_threshold_reset
