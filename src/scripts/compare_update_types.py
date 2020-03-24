@@ -20,9 +20,10 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic_iv", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
+parser.add_argument("--data-type", default="mimic_iv_12h", choices=["mimic_iii", "mimic_iv", "support2", "gaussian",
+                                                                "mimic_iv_12h", "mimic_iv_24h"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
-parser.add_argument("--model", default="lr", type=str)
+parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 
@@ -44,11 +45,12 @@ parser.add_argument("--num-features", default=20, type=int)
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.2, type=float)
 parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
-parser.add_argument("--dynamic-desired-rate", default=None, type=str)
-parser.add_argument("--dynamic-desired-partition", default="update", type=str)
-parser.add_argument("--clinician-fpr", default=0.2, type=float)
+parser.add_argument("--dynamic-desired-rate", default="fpr", type=str)
+parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
+                                                                                     "update_cumulative", "all"])
+parser.add_argument("--clinician-fpr", default=0.0, type=float)
 
-parser.add_argument("--rate-types", default=["auc"], nargs="+")
+parser.add_argument("--rate-types", default=["auc", "fpr"], nargs="+")
 
 # Only for pytorch models trained with GD
 parser.add_argument("--lr", default=0.01, type=float)
@@ -63,9 +65,9 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["feedback_full_fit_oracle"], type=str)
+parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "feedback_full_fit_oracle", "evaluate"], type=str)
 
-parser.add_argument("--save-dir", default="figures/temp/dynamic_rate", type=str)
+parser.add_argument("--save-dir", default="figures/temp/data_difficulty", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 

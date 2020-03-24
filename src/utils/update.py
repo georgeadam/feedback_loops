@@ -6,6 +6,8 @@ from src.utils.metrics import compute_all_rates
 from src.utils.rand import set_seed
 from src.utils.trust import full_trust, conditional_trust
 
+from sklearn.model_selection import train_test_split
+
 
 def wrapped(fn, **kwargs):
     def inside(*args, **specified_args):
@@ -22,73 +24,76 @@ def get_update_fn(update_type, temporal=False):
 
     if update_type == "feedback_online_single_batch":
         return wrapped(update_fn, cumulative_data=False, include_train=False, weight_type=None,
-                       full_fit=False, feedback=True)
+                       fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_online_all_update_data":
         return wrapped(update_fn, cumulative_data=True, include_train=False, weight_type=None,
-                       full_fit=False, feedback=True)
+                       fit_type="partial_fil", feedback=True)
     elif update_type == "feedback_online_all_data":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                       full_fit=False, feedback=True)
+                       fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_full_fit":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                full_fit=True, feedback=True)
+                fit_type="fit", feedback=True)
     elif update_type == "feedback_online_all_update_data_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=False, weight_type=None,
-                       full_fit=False, feedback=True)
+                       fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_online_all_data_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="linearly_decreasing",
-                       full_fit=False, feedback=True)
+                       fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_full_fit_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="linearly_decreasing",
-                full_fit=True, feedback=True)
+                fit_type="fit", feedback=True)
     elif update_type == "no_feedback_online_single_batch":
         return wrapped(update_fn, cumulative_data=False, include_train=False, weight_type=None,
-                       full_fit=False, feedback=False)
+                       fit_type="partial_fit", feedback=False)
     elif update_type == "no_feedback_online_all_update_data":
         return wrapped(update_fn, cumulative_data=True, include_train=False, weight_type=None,
-                       full_fit=False, feedback=False)
+                       fit_type="partial_fit", feedback=False)
     elif update_type == "no_feedback_online_all_data":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                       full_fit=False, feedback=False)
+                       fit_type="partial_fit", feedback=False)
     elif update_type == "no_feedback_full_fit":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                full_fit=True, feedback=False)
+                fit_type="fit", feedback=False)
     elif update_type == "no_feedback_online_all_update_data_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=False, weight_type="linearly_decreasing",
-                       full_fit=False, feedback=False)
+                       fit_type="partial_fit", feedback=False)
     elif update_type == "no_feedback_online_all_data_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="linearly_decreasing",
-                       full_fit=False, feedback=False)
+                       fit_type="partial_fit", feedback=False)
     elif update_type == "no_feedback_full_fit_weighted":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="linearly_decreasing",
-                full_fit=True, feedback=False)
+                fit_type="fit", feedback=False)
     elif update_type == "feedback_full_fit_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="confidence",
-                       full_fit=True, feedback=True)
+                       fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_drop":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop",
-                       full_fit=True, feedback=True)
+                       fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_partial_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="partial_confidence",
-                       full_fit=True, feedback=True)
+                       fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_oracle":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="oracle",
-                       full_fit=True, feedback=True)
+                       fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_conditional_trust":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                full_fit=True, feedback=True, trust_fn=conditional_trust)
+                fit_type="fit", feedback=True, trust_fn=conditional_trust)
     elif update_type == "no_feedback_full_fit_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="confidence",
-                       full_fit=True, feedback=False)
+                       fit_type="fit", feedback=False)
     elif update_type == "no_feedback_full_fit_drop":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop",
-                       full_fit=True, feedback=False)
+                       fit_type="fit", feedback=False)
     elif update_type == "no_feedback_full_fit_partial_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="partial_confidence",
-                       full_fit=True, feedback=False)
+                       fit_type="fit", feedback=False)
+    elif update_type == "no_feedback_full_fit_oracle":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
+                       fit_type="fit", feedback=False)
     elif update_type == "evaluate":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
-                       full_fit=True, feedback=False, update=False)
+                       fit_type="fit", feedback=False, update=False)
 
 
 def map_update_type(update_type):
@@ -112,6 +117,8 @@ def map_update_type(update_type):
         return "ssad-t"
     elif update_type.startswith("feedback_full_fit_conditional_trust"):
         return "cad_conditional_trust"
+    elif update_type.startswith("feedback_full_fit_oracle"):
+        return "cad_oracle"
     elif update_type.startswith("feedback_full_fit"):
         return "cad"
     elif update_type.startswith("no_feedback"):
@@ -156,19 +163,19 @@ def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_te
 
 
 def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_test,
-                         num_updates, cumulative_data=False, include_train=False, weight_type=None, full_fit=False,
+                         num_updates, cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                          feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0, threshold=None, dynamic_desired_rate=None,
-                         dynamic_desired_value=None, dynamic_desired_partition=None ):
+                         dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
     np.random.seed(1)
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
-    cumulative_x = None
-    cumulative_y = None
+    cumulative_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
+    cumulative_y_update = np.array([]).astype(int)
 
     rates = create_empty_rates()
-    meta_weights = initialize_weights(weight_type, x_train, include_train)
-    weights = initialize_weights(weight_type, x_train, include_train)
+    train_weights = initialize_weights(weight_type, x_train, include_train)
+    cumulative_update_weights = np.array([]).astype(float)
     initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for i in range(num_updates):
@@ -185,39 +192,35 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
             model_fpr = rates["fpr"][-1]
 
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
-        cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
-        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train)
-        make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
-
-        x_threshold_reset, y_threshold_reset = get_threshold_reset_data(cumulative_x, cumulative_y,
-                                                                        dynamic_desired_partition, x_train, y_train)
-
-        sub_prob = new_model.predict_proba(x_threshold_reset)
-
-        if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_threshold_reset, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+        sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
+        threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
+                                cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
+                                dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage)
 
         loss = new_model.evaluate(x_test, y_test)
         append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
         rates["loss"][-1] = loss
+        cumulative_x_update, cumulative_y_update = build_cumulative_data(cumulative_data, cumulative_x_update,
+                                                                         cumulative_y_update, sub_x, sub_y)
+        cumulative_update_weights = build_cumulative_weights(cumulative_data, cumulative_update_weights, sub_weights)
 
     return new_model, rates
 
 
 def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_year_limit=1999, update_year_limit=2019,
-                          cumulative_data=False, include_train=False, weight_type=None, full_fit=False,
+                          cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                           feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
-                          dynamic_desired_value=None, dynamic_desired_partition=None):
+                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
     set_seed(1)
     new_model = copy.deepcopy(model)
 
-    cumulative_x = None
-    cumulative_y = None
+    cumulative_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
+    cumulative_y_update = np.array([]).astype(int)
 
     rates = create_empty_rates()
 
-    meta_weights = initialize_weights(weight_type, x_train, include_train)
-    weights = initialize_weights(weight_type, x_train, include_train)
+    train_weights = initialize_weights(weight_type, x_train, include_train)
+    cumulative_update_weights = np.array([]).astype(float)
     initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for year in range(train_year_limit + 1, update_year_limit):
@@ -239,21 +242,17 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
             model_fpr = rates["fpr"][-1]
 
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
-
-        cumulative_x, cumulative_y = build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y)
-        weights = get_weights(weight_type, meta_weights, weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train)
-        make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train)
-
-        x_threshold_reset, y_threshold_reset = get_threshold_reset_data(cumulative_x, cumulative_y,
-                                                                        dynamic_desired_partition, x_train, y_train)
-        sub_prob = new_model.predict_proba(x_threshold_reset)
-
-        if dynamic_desired_rate is not None:
-            threshold = find_threshold(y_threshold_reset, sub_prob, dynamic_desired_rate, dynamic_desired_value)
+        sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
+        threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
+                                cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
+                                dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage)
 
         loss = new_model.evaluate(x_rest[test_idx], y_rest[test_idx])
         append_rates(intermediate, new_model, rates, threshold, x_rest[test_idx], y_rest[test_idx])
         rates["loss"][-1] = (loss)
+        cumulative_x_update, cumulative_y_update = build_cumulative_data(cumulative_data, cumulative_x_update,
+                                                                         cumulative_y_update, sub_x, sub_y)
+        cumulative_update_weights = build_cumulative_weights(cumulative_data, cumulative_update_weights, sub_weights)
 
     return new_model, rates
 
@@ -265,6 +264,29 @@ def compute_initial_fpr(model, threshold, x_train, y_train):
     initial_fpr = len(y_train[initial_fps]) / len(y_train)
     return initial_fpr
 
+
+def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
+                cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
+                dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage):
+    if update:
+        if dynamic_desired_rate is not None:
+            all_train_x, all_train_y, all_train_weights, all_valid_x, all_valid_y = split_validation_data(x_train, y_train, cumulative_x_update,
+                                                                                                          cumulative_y_update, sub_x, sub_y, train_weights,
+                                                                                                          cumulative_update_weights, sub_weights,
+                                                                                                          dynamic_desired_partition, threshold_validation_percentage,
+                                                                                                          include_train)
+
+            getattr(new_model, fit_type)(all_train_x, all_train_y, all_train_weights)
+            valid_prob = new_model.predict_proba(all_valid_x)
+
+            threshold = find_threshold(all_valid_y, valid_prob, dynamic_desired_rate, dynamic_desired_value)
+
+        all_x, all_y, all_weights = combine_data(x_train, y_train, cumulative_x_update,
+                                                 cumulative_y_update, sub_x, sub_y, train_weights,
+                                                 cumulative_update_weights, sub_weights, include_train)
+        getattr(new_model, fit_type)(all_x, all_y, all_weights)
+
+    return threshold
 
 def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, model_fpr=0.2):
     if feedback:
@@ -289,21 +311,6 @@ def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, 
     target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
 
     return target
-
-def make_update(cumulative_x, cumulative_y, full_fit, include_train, new_model, update, weights, x_train, y_train):
-    if update:
-        if include_train:
-            if full_fit:
-                new_model.fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                              weights)
-            else:
-                new_model.partial_fit(np.concatenate((cumulative_x, x_train)), np.concatenate((cumulative_y, y_train)),
-                                      weights)
-        else:
-            if full_fit:
-                new_model.fit(cumulative_x, cumulative_y, weights)
-            else:
-                new_model.partial_fit(cumulative_x, cumulative_y, weights)
 
 
 def append_rates(intermediate, new_model, rates, threshold, x_test, y_test):
@@ -363,7 +370,7 @@ def get_direction(rate):
 
 def initialize_weights(weight_type, x_train, include_train):
     if weight_type is None:
-        weights = None
+        weights = np.array(np.ones(len(x_train)))
     elif include_train:
         weights = np.array(np.ones(len(x_train)))
     else:
@@ -372,21 +379,12 @@ def initialize_weights(weight_type, x_train, include_train):
     return weights
 
 
-def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, sub_conf, sub_y, sub_y_unmodified, threshold, include_train):
-    if weight_type == "linearly_decreasing":
-        if include_train:
-            weights = np.concatenate((np.ones(len(cumulative_x)), np.ones(len(x_train))))
-        else:
-            weights = np.ones(len(cumulative_x))
-
-        meta_weights = np.concatenate((np.zeros(len(sub_conf)), meta_weights))
-        meta_weights += 1
-        weights = weights / meta_weights
-    elif weight_type == "confidence":
+def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold):
+    if weight_type == "confidence":
         sub_idx = sub_y == 0
         sub_weights = copy.deepcopy(sub_conf)
         sub_weights[sub_idx] = 1
-        weights = np.concatenate([sub_weights, prev_weights])
+        weights = sub_weights
     elif weight_type == "drop":
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
@@ -402,7 +400,7 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
         sub_weights[neg_idx] = 1
         sub_weights[pos_idx] = 0
 
-        weights = np.concatenate([sub_weights, prev_weights])
+        weights = sub_weights
     elif weight_type == "partial_confidence":
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
@@ -418,33 +416,138 @@ def get_weights(weight_type, meta_weights, prev_weights, x_train, cumulative_x, 
         sub_weights[neg_idx] = 1
         sub_weights[pos_idx] = sub_conf[pos_idx]
 
-        weights = np.concatenate([sub_weights, prev_weights])
+        weights = sub_weights
     elif weight_type == "oracle":
         fp_idx = np.logical_and(sub_conf > threshold, sub_y_unmodified == 0)
         sub_weights = np.ones(len(sub_y_unmodified))
         sub_weights[fp_idx] = 0
 
-        weights = np.concatenate([sub_weights, prev_weights])
+        weights = sub_weights
     else:
-        weights = None
+        weights = np.array(np.ones(len(sub_y)))
 
     return weights
 
 
-def build_cumulative_data(cumulative_data, cumulative_x, cumulative_y, sub_x, sub_y):
-    if cumulative_x is None or not cumulative_data:
-        cumulative_x = sub_x
-        cumulative_y = sub_y
-    else:
-        cumulative_x = np.concatenate((sub_x, cumulative_x))
-        cumulative_y = np.concatenate((sub_y, cumulative_y))
+def build_cumulative_data(cumulative_data, cumulative_x_update, cumulative_y_update, sub_x, sub_y):
+    if cumulative_data:
+        cumulative_x_update = np.concatenate((sub_x, cumulative_x_update))
+        cumulative_y_update = np.concatenate((sub_y, cumulative_y_update))
 
-    return cumulative_x, cumulative_y
+    return cumulative_x_update, cumulative_y_update
 
 
-def get_threshold_reset_data(cumulative_x, cumulative_y, dynamic_desired_partition, x_train, y_train):
+def build_cumulative_weights(cumulative_data, cumulative_weights, sub_weights):
+    if cumulative_data:
+        cumulative_weights = np.concatenate([sub_weights, cumulative_weights])
+
+    return cumulative_weights
+
+
+def split_validation_data(x_train, y_train, cumulative_x_update,
+                          cumulative_y_update, sub_x, sub_y, train_weights,
+                          cumulative_update_weights, sub_weights,
+                          dynamic_desired_partition, threshold_validation_percentage, include_train):
     if dynamic_desired_partition == "train":
-        x_threshold_reset, y_threshold_reset = x_train, y_train
+        if include_train:
+            x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(x_train,
+                                                                                                                       y_train,
+                                                                                                                       train_weights,
+                                                                                                                       stratify=y_train,
+                                                                                                                       test_size=threshold_validation_percentage)
+            all_train_x = np.concatenate([x_threshold_set, cumulative_x_update, sub_x])
+            all_train_y = np.concatenate([y_threshold_set, cumulative_y_update, sub_y])
+            all_train_weights = np.concatenate([temp_weights, cumulative_update_weights, sub_weights])
+            all_valid_x = x_threshold_reset
+            all_valid_y = y_threshold_reset
+        else:
+            all_train_x = np.concatenate([cumulative_x_update, sub_x])
+            all_train_y = np.concatenate([cumulative_y_update, sub_y])
+            all_train_weights = np.concatenate([cumulative_update_weights, sub_weights])
+            all_valid_x = x_train
+            all_valid_y = y_train
+    elif dynamic_desired_partition == "update_current":
+        neg_prop = np.sum(sub_y == 0) / len(sub_y)
+        pos_prop = np.sum(sub_y == 1) / len(sub_y)
+
+        if (int(neg_prop * threshold_validation_percentage * len(sub_y)) <= 1 or
+            int(pos_prop * threshold_validation_percentage * len(sub_y)) <= 1):
+            strat = None
+        else:
+            strat = sub_y
+
+        x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(sub_x,
+                                                                                                                   sub_y,
+                                                                                                                   sub_weights,
+                                                                                                                   stratify=strat,
+                                                                                                                   test_size=threshold_validation_percentage)
+        if include_train:
+            all_train_x = np.concatenate([x_train, cumulative_x_update, x_threshold_set])
+            all_train_y = np.concatenate([y_train, cumulative_y_update, y_threshold_set])
+            all_train_weights = np.concatenate([train_weights, cumulative_update_weights, temp_weights])
+
+        else:
+            all_train_x = np.concatenate([cumulative_x_update, x_threshold_set])
+            all_train_y = np.concatenate([cumulative_y_update, y_threshold_set])
+            all_train_weights = np.concatenate([cumulative_update_weights, temp_weights])
+
+        all_valid_x = x_threshold_reset
+        all_valid_y = y_threshold_reset
+    elif dynamic_desired_partition == "update_cumulative":
+        x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(np.concatenate([cumulative_x_update, sub_x]),
+                                                                                                                   np.concatenate([cumulative_y_update, sub_y]),
+                                                                                                                   np.concatenate([cumulative_update_weights, sub_weights]),
+                                                                                                                   stratify=np.concatenate([cumulative_y_update, sub_y]),
+                                                                                                                   test_size=threshold_validation_percentage)
+        if include_train:
+            all_train_x = np.concatenate([x_train, x_threshold_set])
+            all_train_y = np.concatenate([y_train, y_threshold_set])
+            all_train_weights = np.concatenate([train_weights, temp_weights])
+
+        else:
+            all_train_x = x_threshold_set
+            all_train_y = y_threshold_set
+            all_train_weights = temp_weights
+
+        all_valid_x = x_threshold_reset
+        all_valid_y = y_threshold_reset
+    elif dynamic_desired_partition == "all":
+        if include_train:
+            x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(np.concatenate([x_train, cumulative_x_update, sub_x]),
+                                                                                                                       np.concatenate([y_train, cumulative_y_update, sub_y]),
+                                                                                                                        np.concatenate([train_weights, cumulative_update_weights, sub_weights]),
+                                                                                                                       stratify=np.concatenate([y_train, cumulative_y_update, sub_y]),
+                                                                                                                       test_size=threshold_validation_percentage)
+            all_train_x = x_threshold_set
+            all_train_y = y_threshold_set
+            all_train_weights = temp_weights
+            all_valid_x = x_threshold_reset
+            all_valid_y = y_threshold_reset
+        else:
+            x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(np.concatenate([cumulative_x_update, sub_x]),
+                                                                                                                       np.concatenate([cumulative_y_update, sub_y]),
+                                                                                                                        np.concatenate([cumulative_update_weights, sub_weights]),
+                                                                                                                       stratify=np.concatenate([cumulative_y_update, sub_y]),
+                                                                                                                       test_size=threshold_validation_percentage)
+            all_train_x = x_threshold_set
+            all_train_y = y_threshold_set
+            all_train_weights = temp_weights
+            all_valid_x = np.concatenate([x_train, x_threshold_reset])
+            all_valid_y = np.concatenate([y_train, y_threshold_reset])
+
+    return all_train_x, all_train_y, all_train_weights, all_valid_x, all_valid_y
+
+
+def combine_data(x_train, y_train, cumulative_x_update,
+                 cumulative_y_update, sub_x, sub_y, train_weights,
+                 cumulative_update_weights, sub_weights, include_train):
+    if include_train:
+        all_x = np.concatenate([x_train, cumulative_x_update, sub_x])
+        all_y = np.concatenate([y_train, cumulative_y_update, sub_y])
+        all_weights = np.concatenate([train_weights, cumulative_update_weights, sub_weights])
     else:
-        x_threshold_reset, y_threshold_reset = cumulative_x, cumulative_y
-    return x_threshold_reset, y_threshold_reset
+        all_x = np.concatenate([cumulative_x_update, sub_x])
+        all_y = np.concatenate([cumulative_y_update, sub_y])
+        all_weights = np.concatenate([cumulative_update_weights, sub_weights])
+
+    return all_x, all_y, all_weights

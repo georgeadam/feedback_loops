@@ -11,8 +11,11 @@ from settings import ROOT_DIR
 
 
 STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2"]
-TEMPORAL_DATA_TYPES = ["mimic_iv"]
+TEMPORAL_DATA_TYPES = ["mimic_iv", "mimic_iv_12h", "mimic_iv_24h"]
 
+mimic_iv_paths = {"mimic_iv": "mimic_iv_datasets_with_year_imputed.csv",
+                  "mimic_iv_12h": "mimic_iv_datasets_with_year_12hrs_imputed.csv",
+                  "mimic_iv_24h": "mimic_iv_datasets_with_year_24hrs_imputed.csv"}
 
 def get_data_fn(args):
     if args.data_type == "gaussian":
@@ -24,8 +27,8 @@ def get_data_fn(args):
         return generate_sklearn_make_classification_dataset
     elif args.data_type == "mimic_iii":
         return generate_real_dataset(load_mimic_iii_data, args.sorted)
-    elif args.data_type == "mimic_iv":
-        return generate_real_dataset(load_mimic_iv_data, args.sorted)
+    elif "mimic_iv" in args.data_type:
+        return generate_real_dataset(load_mimic_iv_data, args.sorted, mimic_iv_paths[args.data_type])
     elif args.data_type == "moons":
         return generate_moons_dataset
     elif args.data_type == "support2":
@@ -151,7 +154,7 @@ def generate_gaussian_quantile_dataset(n_train, n_update, n_test, num_features=2
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def load_mimic_iii_data():
+def load_mimic_iii_data(*args, **kargs):
     df_adult = pd.read_csv(os.path.join(ROOT_DIR, 'adult_icu.gz'), compression='gzip')
 
     train_cols = [
@@ -182,8 +185,8 @@ def load_mimic_iii_data():
     return dataset
 
 
-def generate_real_dataset(fn, sorted=False):
-    data = fn()
+def generate_real_dataset(fn, sorted=False, path=None):
+    data = fn(path)
 
     float_cols = []
     year_idx = None
@@ -260,8 +263,8 @@ def load_support2cls_data():
     return dataset
 
 
-def load_mimic_iv_data():
-    df_adult = pd.read_csv(os.path.join(ROOT_DIR, 'mimic_iv_datasets_with_year_imputed.csv'))
+def load_mimic_iv_data(path):
+    df_adult = pd.read_csv(os.path.join(ROOT_DIR, path))
 
     train_cols = [
         'year',

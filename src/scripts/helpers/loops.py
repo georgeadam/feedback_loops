@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+from src.utils.data import TEMPORAL_DATA_TYPES
 from src.utils.metrics import compute_all_rates
 from src.utils.misc import create_empty_rates
 from src.utils.rand import set_seed
@@ -217,7 +218,7 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
 
 
 def get_update_loop(data_type):
-    if data_type == "mimic_iv":
+    if data_type in TEMPORAL_DATA_TYPES:
         return train_update_loop_temporal
     else:
         return train_update_loop_static

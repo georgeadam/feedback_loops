@@ -26,6 +26,8 @@ def plot_rates_temporal(data, rate_types, update_types, title, plot_path):
 
     if len(rate_types) > 1:
         ax.set_ylim([0, 1.0])
+    else:
+        ax.set_ylim([0.5, 1.0])
 
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
@@ -33,11 +35,16 @@ def plot_rates_temporal(data, rate_types, update_types, title, plot_path):
     ax.set_xticks(np.sort(data["year"].unique()))
     ax.set_xticklabels(np.sort(data["year"].unique()), rotation=90)
 
+
+
     fig.suptitle(title)
 
     # legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30,
     #                    loc="upper right", bbox_to_anchor=(1.30, 1), borderaxespad=0.)
-    legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30, borderaxespad=0.)
+    if len(rate_types) == 1:
+        legend = ax.legend(title="Rate Type", labels=labels, title_fontsize=30, borderaxespad=0.)
+    else:
+        legend = ax.legend(title="Rate Type", title_fontsize=30, borderaxespad=0.)
 
     legend.texts[0].set_size(24)
 
