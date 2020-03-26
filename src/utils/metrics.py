@@ -4,6 +4,8 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_s
 
 @jit
 def fast_auc(y_true, y_prob):
+    if len(y_true) == np.sum(y_true):
+        return 0.0
     y_true = np.asarray(y_true)
     y_true = y_true[np.argsort(y_prob)]
     nfalse = 0
@@ -13,6 +15,7 @@ def fast_auc(y_true, y_prob):
         y_i = y_true[i]
         nfalse += (1 - y_i)
         auc += y_i * nfalse
+
     auc /= (nfalse * (n - nfalse))
     return auc
 
@@ -60,7 +63,11 @@ def compute_all_rates(y, y_pred, y_prob):
     tnr, fpr, fnr, tpr = tn / samples, fp / samples, fn / samples, tp / samples
 
     precision = precision_score(y, y_pred)
-    auc = fast_auc(y, y_prob[:, 1])
+    if y_prob.shape[1] > 1:
+        auc = fast_auc(y, y_prob[:, 1])
+    else:
+        auc = fast_auc(y, y_prob[:, 0])
+
     recall = recall_score(y, y_pred)
     f1 = f1_score(y, y_pred)
     aupr = average_precision_score(y, y_pred)
@@ -68,8 +75,12 @@ def compute_all_rates(y, y_pred, y_prob):
     fp_idx = np.logical_and(y == 0, y_pred == 1)
     pos_idx = y == 1
 
-    fp_conf = np.mean(y_prob[fp_idx, 1])
-    pos_conf = np.mean(y_prob[pos_idx, 1])
+    if y_prob.shape[1] > 1:
+        fp_conf = np.mean(y_prob[fp_idx, 1])
+        pos_conf = np.mean(y_prob[pos_idx, 1])
+    else:
+        fp_conf = np.mean(y_prob[fp_idx, 0])
+        pos_conf = np.mean(y_prob[pos_idx, 0])
 
     rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
              "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf}
