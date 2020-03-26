@@ -7,7 +7,7 @@ sns.set_style("white")
 from src.scripts.helpers.loops import get_update_loop
 from src.scripts.helpers.plotting import get_plot_fn
 from src.scripts.helpers.result_formatting import get_result_formatting_fn
-from src.utils.data import get_data_fn, TEMPORAL_DATA_TYPES
+from src.utils.data import get_data_fn
 from src.utils.misc import create_config_file_name, create_plot_file_name, create_stats_file_name
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
@@ -23,11 +23,12 @@ parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iv", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
                                                                 "mimic_iv_12h", "mimic_iv_24h"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
-parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--model", default="lr", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 parser.add_argument("--balanced", default=False, type=str2bool)
 parser.add_argument("--temporal", default=True, type=str2bool)
+parser.add_argument("--normalization", default="yearly", choices=["all", "yearly", "none"])
 
 # Only applies to non-temporal datasets
 parser.add_argument("--n-train", default=0.1, type=percentage)
@@ -48,11 +49,11 @@ parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.2, type=float)
 parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
-parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
+parser.add_argument("--dynamic-desired-partition", default="train", type=str, choices=["train", "update_current",
                                                                                      "update_cumulative", "all"])
 parser.add_argument("--clinician-fpr", default=0.0, type=float)
 
-parser.add_argument("--rate-types", default=["auc", "fpr"], nargs="+")
+parser.add_argument("--rate-types", default=["auc"], nargs="+")
 
 # Only for pytorch models trained with GD
 parser.add_argument("--lr", default=0.01, type=float)
@@ -67,10 +68,9 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "feedback_full_fit_oracle",
-                                               "feedback_full_fit_drop", "evaluate"], type=str)
+parser.add_argument("--update-types", default=["evaluate"], nargs="+")
 
-parser.add_argument("--save-dir", default="figures/temp/threshold_meeting", type=str)
+parser.add_argument("--save-dir", default="figures/temp/figure1_dynamic_threshold", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 

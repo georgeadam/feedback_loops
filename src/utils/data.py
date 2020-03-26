@@ -29,7 +29,8 @@ def get_data_fn(args):
         return generate_real_dataset(load_mimic_iii_data, args.sorted, balanced=args.balanced)
     elif "mimic_iv" in args.data_type:
         return generate_real_dataset(load_mimic_iv_data, args.sorted,
-                                     mimic_iv_paths[args.data_type], args.balanced, temporal=args.temporal)
+                                     mimic_iv_paths[args.data_type], args.balanced, temporal=args.temporal,
+                                     normalization=args.normalization)
     elif args.data_type == "moons":
         return generate_moons_dataset
     elif args.data_type == "support2":
@@ -186,7 +187,7 @@ def load_mimic_iii_data(*args, **kargs):
     return dataset
 
 
-def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True):
+def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True, normalization="yearly"):
     data = fn(path)
 
     float_cols = []
@@ -259,15 +260,35 @@ def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=
         if year_idx is not None and not temporal:
             np.delete(x_copy, year_idx, 1)
 
-        x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test, stratify=y_copy)
-        x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 
-        data_mean = np.mean(x_train[:, float_cols], 0)
-        data_std = np.std(x_train[:, float_cols], 0)
 
-        x_train[:, float_cols] = (x_train[:, float_cols] - data_mean) / data_std
-        x_update[:, float_cols] = (x_update[:, float_cols] - data_mean) / data_std
-        x_test[:, float_cols] = (x_test[:, float_cols] - data_mean) / data_std
+        if normalization == "all":
+            x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test,
+                                                                stratify=y_copy)
+            x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
+
+            data_mean = np.mean(x_train[:, float_cols], 0)
+            data_std = np.std(x_train[:, float_cols], 0)
+
+            x_train[:, float_cols] = (x_train[:, float_cols] - data_mean) / data_std
+            x_update[:, float_cols] = (x_update[:, float_cols] - data_mean) / data_std
+            x_test[:, float_cols] = (x_test[:, float_cols] - data_mean) / data_std
+        elif normalization == "yearly":
+            for year in years:
+                idx = x_copy[:, year_idx] == year
+                fixed_idx = np.ix_(idx, float_cols)
+                temp_mean = np.mean(x_copy[fixed_idx], 0)
+                temp_std = np.std(x_copy[fixed_idx], 0)
+
+                x_copy[fixed_idx] = (x_copy[fixed_idx] - temp_mean) / temp_std
+
+            x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test,
+                                                                stratify=y_copy)
+            x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
+        elif normalization == "none":
+            x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test,
+                                                                stratify=y_copy)
+            x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 
         return x_train, y_train, x_update, y_update, x_test, y_test
 
