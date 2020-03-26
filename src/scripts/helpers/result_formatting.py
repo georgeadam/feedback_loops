@@ -13,7 +13,7 @@ def results_to_dataframe_temporal(rates, train_year_limit, update_year_limit):
                 for i in range(len(rates[update_type][name])):
                     data["rate"] += rates[update_type][name][i]
                     data["rate_type"] += [name] * (len(rates[update_type][name][i]))
-                    data["year"] +=  list(np.arange(train_year_limit, update_year_limit))
+                    data["year"] +=  list(np.arange(train_year_limit + 1, update_year_limit + 1))
                     data["update_type"] += [update_type] * (len(rates[update_type][name][i]))
 
     return pd.DataFrame(data)
