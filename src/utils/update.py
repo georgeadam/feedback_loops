@@ -105,6 +105,8 @@ def map_update_type(update_type):
         return "no_feedback_drop"
     elif update_type.startswith("no_feedback_full_fit_partial_confidence"):
         return "no_feedback_partial_confidence"
+    elif update_type.startswith("no_feedback_full_fit_oracle"):
+        return "no_feedback_oracle"
     elif update_type.startswith("feedback_full_fit_confidence"):
         return "cad_confidence"
     elif update_type.startswith("feedback_full_fit_drop"):
@@ -120,7 +122,7 @@ def map_update_type(update_type):
     elif update_type.startswith("feedback_full_fit_oracle"):
         return "cad_oracle"
     elif update_type.startswith("feedback_full_fit"):
-        return "cad"
+        return "feedback"
     elif update_type.startswith("no_feedback"):
         return "no_feedback"
     elif update_type.startswith("evaluate"):
@@ -166,7 +168,6 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
                          num_updates, cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                          feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0, threshold=None, dynamic_desired_rate=None,
                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
-    np.random.seed(1)
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
@@ -211,7 +212,6 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
                           cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                           feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
                           dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
-    set_seed(1)
     new_model = copy.deepcopy(model)
 
     cumulative_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])

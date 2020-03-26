@@ -33,8 +33,8 @@ def results_to_dataframe_static(rates, *args):
     return pd.DataFrame(data)
 
 
-def get_result_formatting_fn(data_type):
-    if data_type in TEMPORAL_DATA_TYPES:
+def get_result_formatting_fn(temporal):
+    if temporal:
         return results_to_dataframe_temporal
     else:
         return results_to_dataframe_static

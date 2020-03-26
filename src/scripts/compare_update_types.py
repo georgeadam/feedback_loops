@@ -20,18 +20,20 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic_iv_12h", choices=["mimic_iii", "mimic_iv", "support2", "gaussian",
+parser.add_argument("--data-type", default="mimic_iv", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
                                                                 "mimic_iv_12h", "mimic_iv_24h"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
+parser.add_argument("--balanced", default=False, type=str2bool)
+parser.add_argument("--temporal", default=True, type=str2bool)
 
 # Only applies to non-temporal datasets
 parser.add_argument("--n-train", default=0.1, type=percentage)
 parser.add_argument("--n-update", default=0.7, type=percentage)
 parser.add_argument("--n-test", default=0.2, type=percentage)
-parser.add_argument("--num-updates", default=20, type=int)
+parser.add_argument("--num-updates", default=50, type=int)
 
 # Only applies to temporal datasets
 parser.add_argument("--train-year-limit", default=1997, type=int)
@@ -40,12 +42,12 @@ parser.add_argument("--next-year", default=True, type=str2bool)
 parser.add_argument("--sorted", default=False, type=str2bool)
 
 # Only for synthetic datasets
-parser.add_argument("--num-features", default=20, type=int)
+parser.add_argument("--num-features", default=2, type=int)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.2, type=float)
 parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
-parser.add_argument("--dynamic-desired-rate", default="fpr", type=str)
+parser.add_argument("--dynamic-desired-rate", default=None, type=str)
 parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
                                                                                      "update_cumulative", "all"])
 parser.add_argument("--clinician-fpr", default=0.0, type=float)
@@ -65,9 +67,10 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "feedback_full_fit_oracle", "evaluate"], type=str)
+parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "feedback_full_fit_oracle",
+                                               "feedback_full_fit_drop", "evaluate"], type=str)
 
-parser.add_argument("--save-dir", default="figures/temp/data_difficulty", type=str)
+parser.add_argument("--save-dir", default="figures/temp/threshold_meeting", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
@@ -103,10 +106,10 @@ def main(args):
 
     data_fn = get_data_fn(args)
     model_fn = get_model_fn(args)
-    train_update_loop = get_update_loop(args.data_type)
-    result_formatting_fn = get_result_formatting_fn(args.data_type)
-    plot_fn = get_plot_fn(args.data_type)
-    temporal = True if args.data_type in TEMPORAL_DATA_TYPES else False
+    train_update_loop = get_update_loop(args.temporal)
+    result_formatting_fn = get_result_formatting_fn(args.temporal)
+    plot_fn = get_plot_fn(args.temporal)
+    temporal = args.temporal
 
     rates = {}
     stats = {}

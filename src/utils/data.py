@@ -26,9 +26,10 @@ def get_data_fn(args):
     elif args.data_type == "sklearn":
         return generate_sklearn_make_classification_dataset
     elif args.data_type == "mimic_iii":
-        return generate_real_dataset(load_mimic_iii_data, args.sorted)
+        return generate_real_dataset(load_mimic_iii_data, args.sorted, balanced=args.balanced)
     elif "mimic_iv" in args.data_type:
-        return generate_real_dataset(load_mimic_iv_data, args.sorted, mimic_iv_paths[args.data_type])
+        return generate_real_dataset(load_mimic_iv_data, args.sorted,
+                                     mimic_iv_paths[args.data_type], args.balanced, temporal=args.temporal)
     elif args.data_type == "moons":
         return generate_moons_dataset
     elif args.data_type == "support2":
@@ -185,7 +186,7 @@ def load_mimic_iii_data(*args, **kargs):
     return dataset
 
 
-def generate_real_dataset(fn, sorted=False, path=None):
+def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True):
     data = fn(path)
 
     float_cols = []
@@ -198,6 +199,11 @@ def generate_real_dataset(fn, sorted=False, path=None):
             year_idx = i
 
     float_cols = np.array(float_cols)
+
+    if "year" in data["X"].columns and temporal:
+        years = np.unique(data["X"]["year"])
+    else:
+        years = None
 
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
@@ -214,11 +220,46 @@ def generate_real_dataset(fn, sorted=False, path=None):
     print("a")
 
     def wrapped(n_train, n_update, n_test, **kwargs):
-        n_train = int(len(y) * n_train)
-        n_update = int(len(y) * n_update)
-        n_test = int(len(y) * n_test)
+        x_copy = copy.deepcopy(x)
+        y_copy = copy.deepcopy(y)
 
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test, stratify=y)
+        if balanced:
+            if years is not None:
+                del_idx = np.array([])
+
+                for year in years:
+                    idx = x_copy[:, 0] == year
+                    neg_idx = y_copy == 0
+                    pos_idx = y_copy == 1
+
+                    neg_idx = np.logical_and(idx, neg_idx)
+                    pos_idx = np.logical_and(idx, pos_idx)
+
+                    drop = np.sum(neg_idx) - np.sum(pos_idx)
+                    neg_idx = np.where(neg_idx)[0]
+                    temp_idx = np.random.choice(neg_idx, drop, replace=False)
+
+                    del_idx = np.concatenate([del_idx, temp_idx])
+
+                x_copy, y_copy = np.delete(x_copy, del_idx, 0), np.delete(y_copy, del_idx, 0)
+            else:
+                neg_idx = np.where(y_copy == 0)[0]
+                pos_idx = np.where(y_copy == 1)[0]
+
+                drop = len(neg_idx) - len(pos_idx)
+
+                del_idx = np.random.choice(neg_idx, drop, replace=False)
+
+                x_copy, y_copy = np.delete(x_copy, del_idx, 0), np.delete(y_copy, del_idx, 0)
+
+        n_train = int(len(y_copy) * n_train)
+        n_update = int(len(y_copy) * n_update)
+        n_test = int(len(y_copy) * n_test)
+
+        if year_idx is not None and not temporal:
+            np.delete(x_copy, year_idx, 1)
+
+        x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test, stratify=y_copy)
         x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 
         data_mean = np.mean(x_train[:, float_cols], 0)
@@ -227,9 +268,6 @@ def generate_real_dataset(fn, sorted=False, path=None):
         x_train[:, float_cols] = (x_train[:, float_cols] - data_mean) / data_std
         x_update[:, float_cols] = (x_update[:, float_cols] - data_mean) / data_std
         x_test[:, float_cols] = (x_test[:, float_cols] - data_mean) / data_std
-
-        # if year_idx is not None:
-        #     np.delete(x, year_idx, 1)
 
         return x_train, y_train, x_update, y_update, x_test, y_test
 

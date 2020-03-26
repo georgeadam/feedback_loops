@@ -64,10 +64,10 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
         initial_rates = compute_all_rates(y_test, y_pred, y_prob)
         initial_rates["loss"] = loss
 
-        y_prob = model.predict_proba(x_train)
-        y_pred = y_prob[:, 1] > threshold
-        temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, temp_train_rates)
+        # y_prob = model.predict_proba(x_train)
+        # y_pred = y_prob[:, 1] > threshold
+        # temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
+        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
 
         new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
                                              intermediate=True, threshold=threshold,
@@ -192,10 +192,10 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         initial_rates = compute_all_rates(y_eval, y_pred, y_prob)
         initial_rates["loss"] = loss
 
-        y_prob = model.predict_proba(x_train[:, 1:])
-        y_pred = y_prob[:, 1] > threshold
-        temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, temp_train_rates)
+        # y_prob = model.predict_proba(x_train[:, 1:])
+        # y_pred = y_prob[:, 1] > threshold
+        # temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
+        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
 
         years = x_rest[:, 0]
         x_train = np.delete(x_train, 0, 1)
@@ -217,8 +217,8 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
     return rates, stats
 
 
-def get_update_loop(data_type):
-    if data_type in TEMPORAL_DATA_TYPES:
+def get_update_loop(temporal):
+    if temporal:
         return train_update_loop_temporal
     else:
         return train_update_loop_static
