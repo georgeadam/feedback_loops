@@ -4,7 +4,7 @@ import numpy as np
 from src.utils.misc import create_empty_rates
 from src.utils.metrics import compute_all_rates
 from src.utils.rand import set_seed
-from src.utils.trust import full_trust, conditional_trust
+from src.utils.trust import full_trust, conditional_trust, constant_trust
 
 from sklearn.model_selection import train_test_split
 
@@ -85,6 +85,9 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "feedback_full_fit_conditional_trust":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
                 fit_type="fit", feedback=True, trust_fn=conditional_trust)
+    elif update_type == "feedback_full_fit_constant_trust":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
+                fit_type="fit", feedback=True, trust_fn=constant_trust)
     elif update_type == "no_feedback_full_fit_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="confidence",
                        fit_type="fit", feedback=False)
@@ -129,6 +132,8 @@ def map_update_type(update_type):
         return "ssad-t"
     elif update_type.startswith("feedback_full_fit_conditional_trust"):
         return "feedback_conditional_trust"
+    elif update_type.startswith("feedback_full_fit_constant_trust"):
+        return "feedback_constant_trust"
     elif update_type.startswith("feedback_full_fit_oracle"):
         return "feedback_oracle"
     elif update_type.startswith("feedback_full_fit"):
@@ -176,7 +181,8 @@ def update_model_noise(model, x_train, y_train, x_update, y_update, x_test, y_te
 
 def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_test,
                          num_updates, cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
-                         feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0, threshold=None, dynamic_desired_rate=None,
+                         feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0,
+                         clinician_trust=1.0, threshold=None, dynamic_desired_rate=None,
                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
     new_model = copy.deepcopy(model)
 
@@ -202,7 +208,7 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         else:
             model_fpr = rates["fpr"][-1]
 
-        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust, model_fpr)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
                                 cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
@@ -221,7 +227,8 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
 
 def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_year_limit=1999, update_year_limit=2019,
                           cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
-                          feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
+                          feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0,
+                          clinician_trust=1.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
                           dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
     new_model = copy.deepcopy(model)
 
@@ -258,7 +265,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
         else:
             model_fpr = rates["fpr"][-1]
 
-        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, model_fpr)
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust, model_fpr)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
                                 cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
@@ -307,7 +314,8 @@ def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_
 
     return threshold
 
-def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, model_fpr=0.2):
+def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, clinician_trust=1.0,
+                   model_fpr=0.2):
     if feedback:
         model_pred = new_model.predict_proba(sub_x)
         if model_pred.shape[1] > 1:
@@ -322,7 +330,7 @@ def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, 
         model_pred = copy.deepcopy(sub_y)
 
 
-    trust = trust_fn(model_fpr)
+    trust = trust_fn(model_fpr=model_fpr, clinician_trust=clinician_trust)
 
     clinician_pred = copy.deepcopy(sub_y)
     neg_idx = np.where(clinician_pred == 0)[0]

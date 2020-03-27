@@ -12,7 +12,7 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
                              initial_desired_rate="fpr", initial_desired_value=0.1, threshold_validation_percentage=0.0,
                              clinician_fpr=0.0, dynamic_desired_rate=None, dynamic_desired_partition="train",
                              data_fn=None, update_fn=None, bad_model=False, worst_case=False,
-                             seeds=1, **kwargs):
+                             seeds=1, clinician_trust=1.0, **kwargs):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -64,9 +64,6 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
         initial_rates = compute_all_rates(y_test, y_pred, y_prob)
         initial_rates["loss"] = loss
 
-        # y_prob = model.predict_proba(x_train)
-        # y_pred = y_prob[:, 1] > threshold
-        # temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
         dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
 
         new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
@@ -74,7 +71,8 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
                                              dynamic_desired_rate=dynamic_desired_rate,
                                              dynamic_desired_value=dynamic_desired_value,
                                              dynamic_desired_partition=dynamic_desired_partition,
-                                             clinician_fpr=clinician_fpr)
+                                             clinician_fpr=clinician_fpr,
+                                             clinician_trust=clinician_trust)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])
@@ -138,7 +136,7 @@ def get_dyanmic_desired_value(desired_dynamic_rate, rates):
 def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year_limit=2019, initial_desired_rate="fpr",
                                initial_desired_value=0.1, threshold_validation_percentage=0.0, clinician_fpr=0.0, dynamic_desired_rate=None,
                                dynamic_desired_partition="train", data_fn=None, update_fn=None, bad_model=False,
-                               next_year=True, seeds=1, **kwargs):
+                               next_year=True, seeds=1, clinician_trust=1.0, **kwargs):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -192,9 +190,6 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         initial_rates = compute_all_rates(y_eval, y_pred, y_prob)
         initial_rates["loss"] = loss
 
-        # y_prob = model.predict_proba(x_train[:, 1:])
-        # y_pred = y_prob[:, 1] > threshold
-        # temp_train_rates = compute_all_rates(y_train, y_pred, y_prob)
         dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
 
         years = x_rest[:, 0]
@@ -207,7 +202,8 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
                                              dynamic_desired_rate=dynamic_desired_rate,
                                              dynamic_desired_value=dynamic_desired_value,
                                              dynamic_desired_partition=dynamic_desired_partition,
-                                             clinician_fpr=clinician_fpr)
+                                             clinician_fpr=clinician_fpr,
+                                             clinician_trust=clinician_trust)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])

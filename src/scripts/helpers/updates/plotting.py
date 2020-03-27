@@ -106,6 +106,8 @@ def plot_rates_static(data, rate_types, update_types, title, plot_path):
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
+
+
 def get_plot_fn(temporal):
     if temporal:
         return plot_rates_temporal
