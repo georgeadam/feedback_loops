@@ -30,7 +30,7 @@ parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 parser.add_argument("--balanced", default=False, type=str2bool)
 parser.add_argument("--temporal", default=True, type=str2bool)
-parser.add_argument("--normalization", default="all", choices=["all", "yearly", "none"])
+parser.add_argument("--normalization", default=True, type=str2bool)
 
 # Only applies to non-temporal datasets
 parser.add_argument("--n-train", default=0.1, type=percentage)
@@ -72,7 +72,7 @@ parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
 parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "evaluate"], nargs="+")
 
-parser.add_argument("--save-dir", default="figures/temp/data_difficulty", type=str)
+parser.add_argument("--save-dir", default="figures/dynamic_threshold", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
@@ -100,10 +100,14 @@ def main(args):
 
     rates = {}
     stats = {}
-
     if type(args.update_types) is str:
         update_types = ["feedback_full_fit", "no_feedback_full_fit",
                         "feedback_full_fit_{}".format(args.update_types), "no_feedback_full_fit_{}".format(args.update_types),
+                        "evaluate"]
+    elif len(args.update_types) == 1:
+        update_types = ["feedback_full_fit", "no_feedback_full_fit",
+                        "feedback_full_fit_{}".format(args.update_types[0]),
+                        "no_feedback_full_fit_{}".format(args.update_types[0]),
                         "evaluate"]
     else:
         update_types = args.update_types

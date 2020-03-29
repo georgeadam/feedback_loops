@@ -1,9 +1,12 @@
+import copy
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 from src.utils.data import TEMPORAL_DATA_TYPES
 from src.utils.metrics import compute_all_rates
 from src.utils.misc import create_empty_rates
+from src.utils.preprocess import get_scaler
 from src.utils.rand import set_seed
 from src.utils.update import find_threshold
 
@@ -12,7 +15,7 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
                              initial_desired_rate="fpr", initial_desired_value=0.1, threshold_validation_percentage=0.0,
                              clinician_fpr=0.0, dynamic_desired_rate=None, dynamic_desired_partition="train",
                              data_fn=None, update_fn=None, bad_model=False, worst_case=False,
-                             seeds=1, clinician_trust=1.0, **kwargs):
+                             seeds=1, clinician_trust=1.0, normalization=True, **kwargs):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -26,7 +29,8 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
 
         x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
                                                                        num_features=num_features)
-
+        scaler = get_scaler(normalization)
+        scaler.fit(x_train)
         model = model_fn(num_features=x_train.shape[1])
 
         if threshold_validation_percentage > 0:
@@ -37,8 +41,8 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
 
         if not bad_model:
             set_seed(seed)
-            model.fit(x_train_fit, y_train_fit)
-            loss = model.evaluate(x_test, y_test)
+            model.fit(scaler.transform(x_train_fit), y_train_fit)
+            loss = model.evaluate(scaler.transform(x_test), y_test)
 
         y_prob = model.predict_proba(x_threshold_fit)
 
@@ -48,7 +52,7 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
             threshold = 0.5
 
         if worst_case:
-            update_y_prob = model.predict_proba(x_update)
+            update_y_prob = model.predict_proba(scaler.transform(x_update))
             update_y_pred = update_y_prob[:, 1] > threshold
 
             update_fps = np.logical_and(update_y_pred == 1, y_update == 0).astype(int)
@@ -57,8 +61,8 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
             y_update = y_update[sorted_idx]
 
         set_seed(seed)
-        model.fit(x_train, y_train)
-        y_prob = model.predict_proba(x_test)
+        model.fit(scaler.transform(x_train), y_train)
+        y_prob = model.predict_proba(scaler.transform(x_test))
         y_pred = y_prob[:, 1] > threshold
 
         initial_rates = compute_all_rates(y_test, y_pred, y_prob)
@@ -72,7 +76,8 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
                                              dynamic_desired_value=dynamic_desired_value,
                                              dynamic_desired_partition=dynamic_desired_partition,
                                              clinician_fpr=clinician_fpr,
-                                             clinician_trust=clinician_trust)
+                                             clinician_trust=clinician_trust,
+                                             scaler=scaler)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])
@@ -136,7 +141,7 @@ def get_dyanmic_desired_value(desired_dynamic_rate, rates):
 def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year_limit=2019, initial_desired_rate="fpr",
                                initial_desired_value=0.1, threshold_validation_percentage=0.0, clinician_fpr=0.0, dynamic_desired_rate=None,
                                dynamic_desired_partition="train", data_fn=None, update_fn=None, bad_model=False,
-                               next_year=True, seeds=1, clinician_trust=1.0, **kwargs):
+                               next_year=True, seeds=1, clinician_trust=1.0, normalization=True, **kwargs):
     seeds = np.arange(seeds)
 
     rates = create_empty_rates()
@@ -153,16 +158,23 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         y = np.concatenate([y_train, y_update, y_test])
 
         model = model_fn(num_features=x.shape[1] - 1)
+
         train_idx = x[:, 0] <= train_year_limit
         x_train, y_train = x[train_idx], y[train_idx]
         x_rest, y_rest = x[~train_idx], y[~train_idx]
+        years_train = x_train[:, 0]
+        years_rest = x_rest[:, 0]
+        x_train, x_rest = x_train[:, 1:], x_rest[:, 1:]
+
+        scaler = get_scaler(normalization)
+        scaler.fit(x_train)
 
         if next_year:
-            eval_idx = x[:, 0] == train_year_limit + 1
+            eval_idx = years_rest == train_year_limit + 1
         else:
-            eval_idx = x[:, 0] == update_year_limit
+            eval_idx = years_rest == update_year_limit
 
-        x_eval, y_eval = x[eval_idx],  y[eval_idx]
+        x_eval, y_eval = x_rest[eval_idx],  y_rest[eval_idx]
 
         if threshold_validation_percentage > 0:
             x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = train_test_split(x_train, y_train, stratify=y_train,
@@ -172,10 +184,10 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
 
         if not bad_model:
             set_seed(seed)
-            model.fit(x_train_fit[:, 1:], y_train_fit)
-            loss = model.evaluate(x_eval[:, 1:], y_eval)
+            model.fit(scaler.transform(x_train_fit), y_train_fit)
+            loss = model.evaluate(scaler.transform(x_eval), y_eval)
 
-        y_prob = model.predict_proba(x_threshold_fit[:, 1:])
+        y_prob = model.predict_proba(scaler.transform(x_threshold_fit))
 
         if initial_desired_rate is not None:
             threshold = find_threshold(y_threshold_fit, y_prob, initial_desired_rate, initial_desired_value)
@@ -183,8 +195,8 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
             threshold = 0.5
 
         set_seed(seed)
-        model.fit(x_train[:, 1:], y_train)
-        y_prob = model.predict_proba(x_eval[:, 1:])
+        model.fit(scaler.transform(x_train), y_train)
+        y_prob = model.predict_proba(scaler.transform(x_eval))
         y_pred = y_prob[:, 1] > threshold
 
         initial_rates = compute_all_rates(y_eval, y_pred, y_prob)
@@ -192,18 +204,15 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
 
         dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
 
-        years = x_rest[:, 0]
-        x_train = np.delete(x_train, 0, 1)
-        x_rest = np.delete(x_rest, 0, 1)
-
-        new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years, train_year_limit, update_year_limit,
+        new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years_rest, train_year_limit, update_year_limit,
                                              next_year=next_year,
                                              intermediate=True, threshold=threshold,
                                              dynamic_desired_rate=dynamic_desired_rate,
                                              dynamic_desired_value=dynamic_desired_value,
                                              dynamic_desired_partition=dynamic_desired_partition,
                                              clinician_fpr=clinician_fpr,
-                                             clinician_trust=clinician_trust)
+                                             clinician_trust=clinician_trust,
+                                             scaler=scaler)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])

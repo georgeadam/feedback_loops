@@ -183,7 +183,8 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
                          num_updates, cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                          feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0,
                          clinician_trust=1.0, threshold=None, dynamic_desired_rate=None,
-                         dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
+                         dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2,
+                         scaler=None):
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
@@ -193,7 +194,6 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
     rates = create_empty_rates()
     train_weights = initialize_weights(weight_type, x_train, include_train)
     cumulative_update_weights = np.array([]).astype(float)
-    initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for i in range(num_updates):
         idx_start = int(size * i)
@@ -204,19 +204,21 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         sub_conf = new_model.predict_proba(sub_x)[:, 1]
 
         if i == 0:
+            initial_fpr = compute_initial_fpr(model, threshold, sub_x, sub_y, scaler)
             model_fpr = initial_fpr
         else:
             model_fpr = rates["fpr"][-1]
 
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust, model_fpr)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
+        update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
                                 cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
                                 dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage,
-                                cumulative_data)
+                                cumulative_data, scaler)
 
         loss = new_model.evaluate(x_test, y_test)
-        append_rates(intermediate, new_model, rates, threshold, x_test, y_test)
+        append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scaler)
         rates["loss"][-1] = loss
         cumulative_x_update, cumulative_y_update = build_cumulative_data(cumulative_data, cumulative_x_update,
                                                                          cumulative_y_update, sub_x, sub_y)
@@ -229,7 +231,8 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
                           cumulative_data=False, include_train=False, weight_type=None, fit_type="fit",
                           feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0,
                           clinician_trust=1.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
-                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2):
+                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2,
+                          scaler=None):
     new_model = copy.deepcopy(model)
 
     cumulative_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
@@ -239,7 +242,6 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
 
     train_weights = initialize_weights(weight_type, x_train, include_train)
     cumulative_update_weights = np.array([]).astype(float)
-    initial_fpr = compute_initial_fpr(model, threshold, x_train, y_train)
 
     for year in range(train_year_limit + 1, update_year_limit):
         sub_idx = years == year
@@ -252,7 +254,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
         sub_x = x_rest[sub_idx]
         sub_y = copy.deepcopy(y_rest[sub_idx])
         sub_y_unmodified = copy.deepcopy(y_rest[sub_idx])
-        temp_conf = new_model.predict_proba(sub_x)
+        temp_conf = new_model.predict_proba(scaler.transform(sub_x))
 
         if temp_conf.shape[1] > 1:
             sub_conf = temp_conf[:, 1]
@@ -260,30 +262,34 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
             sub_conf = temp_conf[:, 0]
 
         if year == train_year_limit + 1:
-            initial_fpr = compute_initial_fpr(model, threshold, x_rest[sub_idx], y_rest[sub_idx])
+            initial_fpr = compute_initial_fpr(model, threshold, x_rest[sub_idx], y_rest[sub_idx], scaler)
             model_fpr = initial_fpr
         else:
             model_fpr = rates["fpr"][-1]
 
-        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust, model_fpr)
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr,
+                               clinician_trust, model_fpr, scaler)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
+        update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
                                 cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
                                 dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage,
-                                cumulative_data)
+                                cumulative_data, scaler)
 
-        loss = new_model.evaluate(x_rest[test_idx], y_rest[test_idx])
-        append_rates(intermediate, new_model, rates, threshold, x_rest[test_idx], y_rest[test_idx])
+        loss = new_model.evaluate(scaler.transform(x_rest[test_idx]), y_rest[test_idx])
+        append_rates(intermediate, new_model, rates, threshold, x_rest[test_idx], y_rest[test_idx], scaler)
         rates["loss"][-1] = (loss)
+
         cumulative_x_update, cumulative_y_update = build_cumulative_data(cumulative_data, cumulative_x_update,
                                                                          cumulative_y_update, sub_x, sub_y)
         cumulative_update_weights = build_cumulative_weights(cumulative_data, cumulative_update_weights, sub_weights)
 
+
     return new_model, rates
 
 
-def compute_initial_fpr(model, threshold, x_train, y_train):
-    temp_prob = model.predict_proba(x_train)[:, 1]
+def compute_initial_fpr(model, threshold, x_train, y_train, scaler):
+    temp_prob = model.predict_proba(scaler.transform(x_train))[:, 1]
     temp_pred = temp_prob > threshold
     initial_fps = np.logical_and(temp_pred == 1, y_train == 0)
     initial_fpr = len(y_train[initial_fps]) / len(y_train)
@@ -293,7 +299,7 @@ def compute_initial_fpr(model, threshold, x_train, y_train):
 def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
                 cumulative_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
                 dynamic_desired_rate, dynamic_desired_value, dynamic_desired_partition, threshold_validation_percentage,
-                cumulative_data):
+                cumulative_data, scaler):
     if update:
         if dynamic_desired_rate is not None:
             all_train_x, all_train_y, all_train_weights, all_valid_x, all_valid_y = split_validation_data(x_train, y_train, cumulative_x_update,
@@ -302,22 +308,22 @@ def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_
                                                                                                           dynamic_desired_partition, threshold_validation_percentage,
                                                                                                           include_train, cumulative_data)
 
-            getattr(new_model, fit_type)(all_train_x, all_train_y, all_train_weights)
-            valid_prob = new_model.predict_proba(all_valid_x)
+            getattr(new_model, fit_type)(scaler.transform(all_train_x), all_train_y, all_train_weights)
+            valid_prob = new_model.predict_proba(scaler.transform(all_valid_x))
 
             threshold = find_threshold(all_valid_y, valid_prob, dynamic_desired_rate, dynamic_desired_value)
 
         all_x, all_y, all_weights = combine_data(x_train, y_train, cumulative_x_update,
                                                  cumulative_y_update, sub_x, sub_y, train_weights,
                                                  cumulative_update_weights, sub_weights, include_train)
-        getattr(new_model, fit_type)(all_x, all_y, all_weights)
+        getattr(new_model, fit_type)(scaler.transform(all_x), all_y, all_weights)
 
     return threshold
 
 def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, clinician_trust=1.0,
-                   model_fpr=0.2):
+                   model_fpr=0.2, scaler=None):
     if feedback:
-        model_pred = new_model.predict_proba(sub_x)
+        model_pred = new_model.predict_proba(scaler.transform(sub_x))
         if model_pred.shape[1] > 1:
             model_pred = model_pred[:, 1] > threshold
         else:
@@ -344,13 +350,13 @@ def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, 
     return target
 
 
-def append_rates(intermediate, new_model, rates, threshold, x_test, y_test):
+def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scaler):
     if intermediate:
         if threshold is None:
             pred_prob = new_model.predict_proba(x_test)
-            new_pred = new_model.predict(x_test)
+            new_pred = new_model.predict(scaler.transform(x_test))
         else:
-            pred_prob = new_model.predict_proba(x_test)
+            pred_prob = new_model.predict_proba(scaler.transform(x_test))
 
             if pred_prob.shape[1] > 1:
                 new_pred = pred_prob[:, 1] >= threshold
@@ -595,3 +601,13 @@ def combine_data(x_train, y_train, cumulative_x_update,
         all_weights = np.concatenate([cumulative_update_weights, sub_weights])
 
     return all_x, all_y, all_weights
+
+
+def update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler):
+    if include_train:
+        all_x = np.concatenate([x_train, cumulative_x_update, sub_x])
+    else:
+        all_x = np.concatenate([cumulative_x_update, sub_x])
+
+
+    scaler.fit(all_x)

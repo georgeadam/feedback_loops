@@ -10,7 +10,7 @@ parent_parser.add_argument("--warm-start", default=False, type=str2bool)
 parent_parser.add_argument("--class-weight", default=None, type=str)
 parent_parser.add_argument("--balanced", default=False, type=str2bool)
 parent_parser.add_argument("--temporal", default=True, type=str2bool)
-parent_parser.add_argument("--normalization", default="yearly", choices=["all", "yearly", "none"])
+parent_parser.add_argument("--normalization", default=True, type=str2bool)
 
 # Only applies to non-temporal datasets
 parent_parser.add_argument("--n-train", default=0.1, type=percentage)

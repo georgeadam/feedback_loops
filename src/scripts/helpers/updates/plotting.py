@@ -35,6 +35,8 @@ def plot_rates_temporal(data, rate_types, update_types, title, plot_path):
 
     if len(rate_types) > 1:
         ax.set_ylim([0, 1.0])
+    elif rate_types[0] == "auc":
+        ax.set_ylim([0.5, 1.0])
 
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
@@ -88,6 +90,8 @@ def plot_rates_static(data, rate_types, update_types, title, plot_path):
     ax.set_xlim([0, np.max(data["num_updates"])])
     if len(rate_types) > 1:
         ax.set_ylim([0, 1.0])
+    elif rate_types[0] == "auc":
+        ax.set_ylim([0.5, 1.0])
 
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
@@ -104,8 +108,6 @@ def plot_rates_static(data, rate_types, update_types, title, plot_path):
     legend.texts[0].set_size(24)
 
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
-
-
 
 
 def get_plot_fn(temporal):
