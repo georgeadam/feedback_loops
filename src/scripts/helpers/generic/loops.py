@@ -65,7 +65,7 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
         y_prob = model.predict_proba(scaler.transform(x_test))
         y_pred = y_prob[:, 1] > threshold
 
-        initial_rates = compute_all_rates(y_test, y_pred, y_prob)
+        initial_rates = compute_all_rates(y_test, y_pred, y_prob, initial=True)
         initial_rates["loss"] = loss
 
         dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
@@ -199,7 +199,7 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         y_prob = model.predict_proba(scaler.transform(x_eval))
         y_pred = y_prob[:, 1] > threshold
 
-        initial_rates = compute_all_rates(y_eval, y_pred, y_prob)
+        initial_rates = compute_all_rates(y_eval, y_pred, y_prob, initial=True)
         initial_rates["loss"] = loss
 
         dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)

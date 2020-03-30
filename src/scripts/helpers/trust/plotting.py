@@ -3,11 +3,11 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 
-def plot_conditional_trust_static(data, rate_types, title, plot_path):
+def plot_conditional_trust_static(data, rate_types, model_fpr, title, plot_path):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
-    g = sns.lineplot(x="num_updates", y="rate", hue="clinician_fpr", data=data.loc[data["rate_type"].isin(rate_types)],
+    g1 = sns.lineplot(x="num_updates", y="rate", hue="clinician_fpr", data=data.loc[(data["rate_type"].isin(rate_types)) & (data["model_fpr"] == model_fpr)],
                      err_style="band", ax=ax, ci="sd", palette="bright", marker="o")
 
     ax.set_xlabel("Num Updates", size=30, labelpad=10.0)
@@ -15,11 +15,14 @@ def plot_conditional_trust_static(data, rate_types, title, plot_path):
     labels = []
     clinician_fprs = np.unique(data["clinician_fpr"])
 
-    for i in range(len(g.lines)):
-        label = g.lines[i].get_label()
+    for i in range(len(g1.lines)):
+        label = g1.lines[i].get_label()
 
         if label in clinician_fprs:
-            labels.append(label)
+            if label == "0.0":
+                labels.append("Blind Trust")
+            else:
+                labels.append(label)
 
     ax.set_xlim([0, np.max(data["num_updates"])])
     if rate_types[0] == "auc":
@@ -38,11 +41,11 @@ def plot_conditional_trust_static(data, rate_types, title, plot_path):
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
-def plot_conditional_trust_temporal(data, rate_types, title, plot_path):
+def plot_conditional_trust_temporal(data, rate_types, model_fpr, title, plot_path):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
-    g = sns.lineplot(x="year", y="rate", hue="clinician_fpr", data=data.loc[data["rate_type"].isin(rate_types)],
+    g1 = sns.lineplot(x="year", y="rate", hue="clinician_fpr", data=data.loc[(data["rate_type"].isin(rate_types)) & (data["model_fpr"] == model_fpr)],
                      err_style="band", ax=ax, ci="sd", palette="bright", marker="o")
 
     ax.set_xlabel("Year", size=30, labelpad=10.0)
@@ -51,11 +54,14 @@ def plot_conditional_trust_temporal(data, rate_types, title, plot_path):
     clinician_fprs = np.unique(data["clinician_fpr"])
     clinician_fprs = [str(clinician_fpr) for clinician_fpr in clinician_fprs]
 
-    for i in range(len(g.lines)):
-        label = g.lines[i].get_label()
+    for i in range(len(g1.lines)):
+        label = g1.lines[i].get_label()
 
         if label in clinician_fprs:
-            labels.append(label)
+            if label == "0.0":
+                labels.append("Blind Trust")
+            else:
+                labels.append(label)
 
     if rate_types[0] == "auc":
         ax.set_ylim([0.5, 1.0])
@@ -92,7 +98,9 @@ def plot_constant_trust_static(data, rate_type, title, plot_path):
     for i in range(len(g.lines)):
         label = g.lines[i].get_label()
 
-        if label in trusts:
+        if label == "1.0":
+            labels.append("Blind Trust")
+        elif label in trusts:
             labels.append(label)
 
     ax.set_xlim([0, np.max(data["num_updates"])])
@@ -128,7 +136,9 @@ def plot_constant_trust_temporal(data, rate_type, title, plot_path):
     for i in range(len(g.lines)):
         label = g.lines[i].get_label()
 
-        if label in trusts:
+        if label == "1.0":
+            labels.append("Blind Trust")
+        elif label in trusts:
             labels.append(label)
 
     if rate_type == "auc":

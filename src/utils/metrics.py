@@ -57,7 +57,7 @@ def f1_score(y, y_pred):
     return (2 * precision * recall) / (precision + recall)
 
 
-def compute_all_rates(y, y_pred, y_prob):
+def compute_all_rates(y, y_pred, y_prob, initial=False):
     samples = float(len(y))
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
     tnr, fpr, fnr, tpr = tn / samples, fp / samples, fn / samples, tp / samples
@@ -75,6 +75,8 @@ def compute_all_rates(y, y_pred, y_prob):
     fp_idx = np.logical_and(y == 0, y_pred == 1)
     pos_idx = y == 1
 
+    acc = float(np.sum(y == y_pred) / samples)
+
     if y_prob.shape[1] > 1:
         fp_conf = np.mean(y_prob[fp_idx, 1])
         pos_conf = np.mean(y_prob[pos_idx, 1])
@@ -82,7 +84,26 @@ def compute_all_rates(y, y_pred, y_prob):
         fp_conf = np.mean(y_prob[fp_idx, 0])
         pos_conf = np.mean(y_prob[pos_idx, 0])
 
-    rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
-             "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf}
+    if initial:
+        fp_count = 0
+        total_samples = 0
+    else:
+        fp_count = int(np.sum(fp_idx))
+        total_samples = len(y)
+
+    if initial:
+        rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
+                 "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
+                 "total_samples": total_samples, "fp_prop": 0.0, "acc": acc}
+    else:
+        rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
+                 "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
+                 "total_samples": total_samples, "acc": acc}
 
     return rates
+
+
+def compute_fp_portion(y, y_pred):
+    fp_idx = np.logical_and(y == 0, y_pred == 1)
+
+    return np.sum(fp_idx) / len(y)

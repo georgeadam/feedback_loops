@@ -33,10 +33,10 @@ parent_parser.add_argument("--threshold-validation-percentage", default=0.2, typ
 parent_parser.add_argument("--dynamic-desired-rate", default="fpr", type=str)
 parent_parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
                                                                                      "update_cumulative", "all"])
-parent_parser.add_argument("--clinician-fprs", default=[0.01, 0.025, 0.05, 0.1, 0.15, 0.2], type=float)
-parent_parser.add_argument("--model-fprs", default=[0.2], type=float)
+parent_parser.add_argument("--clinician-fprs", default=[0.01, 0.025, 0.05, 0.1, 0.15, 0.2], type=float, nargs="+")
+parent_parser.add_argument("--model-fprs", default=[0.2], type=float, nargs="+")
 
-parent_parser.add_argument("--rate-types", default=["auc"], type=str)
+parent_parser.add_argument("--rate-types", default=["auc"], nargs="+")
 
 parent_parser.add_argument("--lr", default=0.01, type=float)
 parent_parser.add_argument("--online-lr", default=0.01, type=float)

@@ -28,10 +28,10 @@ parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="lr", type=str)
 parser.add_argument("--temporal", default=True, type=str2bool)
 
-parser.add_argument("--clinician-fprs", default=[0.01, 0.025, 0.05, 0.1, 0.15, 0.2], type=float)
-parser.add_argument("--model-fprs", default=[0.2], type=float)
+parser.add_argument("--clinician-fprs", default=[0.01, 0.025], type=float, nargs="+")
+parser.add_argument("--model-fprs", default=[0.01, 0.025], type=float, nargs="+")
 
-parser.add_argument("--update-type", default="feedback_full_fit_conditional_trust", type=str)
+parser.add_argument("--update-types", default=["feedback_full_fit_conditional_trust", "feedback_full_fit"], type=str)
 
 parser.add_argument("--save-dir", default="figures/temp/trust_experiments/conditional", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
@@ -54,42 +54,40 @@ def main(args):
     plot_fn = get_plot_fn(args.temporal, "conditional")
     temporal = args.temporal
 
-    rates = {model_fpr: {} for model_fpr in args.model_fprs}
-    stats = {model_fpr: {} for model_fpr in args.model_fprs}
+    rates = {update_type: {model_fpr: {} for model_fpr in args.model_fprs} for update_type in args.update_types}
 
-    update_type = args.update_type
+    for update_type in args.update_types:
+        for model_fpr in args.model_fprs:
+            if update_type == "feedback_full_fit":
+                clinician_fprs = [0.0]
+            else:
+                clinician_fprs = args.clinician_fprs
 
-    for model_fpr in args.model_fprs:
-        for clinician_fpr in args.clinician_fprs:
-            update_fn = get_update_fn(update_type, temporal=temporal)
-            temp_rates, temp_stats = train_update_loop(model_fn=model_fn, n_train=args.n_train, n_update=args.n_update,
-                                                       n_test=args.n_test, num_updates=args.num_updates,
-                                                       num_features=args.num_features,
-                                                       train_year_limit=args.train_year_limit,
-                                                       update_year_limit=args.update_year_limit,
-                                                       initial_desired_rate=args.initial_desired_rate,
-                                                       initial_desired_value=model_fpr,
-                                                       threshold_validation_percentage=args.threshold_validation_percentage,
-                                                       dynamic_desired_rate=args.dynamic_desired_rate,
-                                                       dynamic_desired_partition=args.dynamic_desired_partition,
-                                                       data_fn=data_fn, update_fn=update_fn, bad_model=args.bad_model,
-                                                       next_year=args.next_year, seeds=args.seeds, clinician_fpr=clinician_fpr)
-            rates[model_fpr][clinician_fpr] = temp_rates
-            stats[model_fpr][clinician_fpr] = temp_stats
+            for clinician_fpr in clinician_fprs:
+                update_fn = get_update_fn(update_type, temporal=temporal)
+                temp_rates, temp_stats = train_update_loop(model_fn=model_fn, n_train=args.n_train, n_update=args.n_update,
+                                                           n_test=args.n_test, num_updates=args.num_updates,
+                                                           num_features=args.num_features,
+                                                           train_year_limit=args.train_year_limit,
+                                                           update_year_limit=args.update_year_limit,
+                                                           initial_desired_rate=args.initial_desired_rate,
+                                                           initial_desired_value=model_fpr,
+                                                           threshold_validation_percentage=args.threshold_validation_percentage,
+                                                           dynamic_desired_rate=args.dynamic_desired_rate,
+                                                           dynamic_desired_partition=args.dynamic_desired_partition,
+                                                           data_fn=data_fn, update_fn=update_fn, bad_model=args.bad_model,
+                                                           next_year=args.next_year, seeds=args.seeds, clinician_fpr=clinician_fpr)
+                rates[update_type][model_fpr][clinician_fpr] = temp_rates
 
     data = result_formatting_fn(rates, args.train_year_limit, args.update_year_limit)
 
     for model_fpr in args.model_fprs:
-        for clinician_fpr in args.clinician_fprs:
-            stats[model_fpr][clinician_fpr] = summarize_stats(stats[model_fpr][clinician_fpr])
-
-    for model_fpr in args.model_fprs:
-        plot_name = "{}_{}_{}_{}_{}_{}_{}".format(args.data_type, args.model, args.train_year_limit, args.update_year_limit, args.next_year, args.rate_types, model_fpr)
+        plot_name = "{}_{}_{}_{}".format(args.data_type, args.model, args.rate_types, model_fpr)
         plot_file_name = create_plot_file_name(args.file_name, plot_name, timestamp)
         plot_path = os.path.join(results_dir, plot_file_name)
         plot_title = ""
         create_file_path(plot_path)
-        plot_fn(data, args.rate_types, plot_title, plot_path)
+        plot_fn(data, args.rate_types, model_fpr, plot_title, plot_path)
 
     config_file_name = create_config_file_name(args.file_name, plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)

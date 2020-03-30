@@ -367,7 +367,14 @@ def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scal
 
         for key in rates.keys():
             if key in updated_rates.keys():
-                rates[key].append(updated_rates[key])
+                if (key == "fp_count" or key == "total_samples") and len(rates[key]) > 0:
+                    rates[key].append(rates[key][-1] + updated_rates[key])
+                else:
+                    rates[key].append(updated_rates[key])
+
+        rates["fp_prop"].append(rates["fp_count"][-1] / rates["total_samples"][-1])
+
+
 
 
 def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):

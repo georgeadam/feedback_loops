@@ -3,34 +3,38 @@ import pandas as pd
 
 
 def results_to_dataframe_conditional_temporal(rates, train_year_limit, update_year_limit):
-    data = {"rate": [], "rate_type": [], "year": [], "model_fpr": [], "clinician_fpr": []}
+    data = {"rate": [], "rate_type": [], "year": [], "model_fpr": [], "clinician_fpr": [], "update_type": []}
 
-    for model_fpr in rates.keys():
-        for clinician_fpr in rates[model_fpr].keys():
-            for rate_type in rates[model_fpr][clinician_fpr].keys():
-                if rate_type != "loss":
-                    for i in range(len(rates[model_fpr][clinician_fpr][rate_type])):
-                        data["rate"] += rates[model_fpr][clinician_fpr][rate_type][i]
-                        data["rate_type"] += [rate_type] * (len(rates[model_fpr][clinician_fpr][rate_type][i]))
-                        data["year"] +=  list(np.arange(train_year_limit + 1, update_year_limit + 1))
-                        data["model_fpr"] += [model_fpr] * len(rates[model_fpr][clinician_fpr][rate_type][i])
-                        data["clinician_fpr"] += [clinician_fpr] * len(rates[model_fpr][clinician_fpr][rate_type][i])
+    for update_type in rates.keys():
+        for model_fpr in rates[update_type].keys():
+            for clinician_fpr in rates[update_type][model_fpr].keys():
+                for rate_type in rates[update_type][model_fpr][clinician_fpr].keys():
+                    if rate_type != "loss":
+                        for i in range(len(rates[update_type][model_fpr][clinician_fpr][rate_type])):
+                            data["rate"] += rates[update_type][model_fpr][clinician_fpr][rate_type][i]
+                            data["rate_type"] += [rate_type] * (len(rates[update_type][model_fpr][clinician_fpr][rate_type][i]))
+                            data["year"] +=  list(np.arange(train_year_limit + 1, update_year_limit + 1))
+                            data["model_fpr"] += [model_fpr] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
+                            data["clinician_fpr"] += [clinician_fpr] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
+                            data["update_type"] += [update_type] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
 
     return pd.DataFrame(data)
 
 
 def results_to_dataframe_conditional_static(rates, *args):
-    data = {"rate": [], "rate_type": [], "num_updates": [], "model_fpr": [], "clinician_fpr": []}
+    data = {"rate": [], "rate_type": [], "num_updates": [], "model_fpr": [], "clinician_fpr": [], "update_type": []}
 
-    for model_fpr in rates.keys():
-        for clinician_fpr in rates[model_fpr].keys():
-            for rate_type in rates[model_fpr][clinician_fpr].keys():
-                for i in range(len(rates[model_fpr][clinician_fpr][rate_type])):
-                    data["rate"] += rates[model_fpr][clinician_fpr][rate_type][i]
-                    data["rate_type"] += [rate_type] * len(rates[model_fpr][clinician_fpr][rate_type][i])
-                    data["num_updates"] +=  list(np.arange(len(rates[model_fpr][clinician_fpr][rate_type][i])))
-                    data["model_fpr"] += [model_fpr] * len(rates[model_fpr][clinician_fpr][rate_type][i])
-                    data["clinician_fpr"] += [clinician_fpr] * len(rates[model_fpr][clinician_fpr][rate_type][i])
+    for update_type in rates.keys():
+        for model_fpr in rates[update_type].keys():
+            for clinician_fpr in rates[update_type][model_fpr].keys():
+                for rate_type in rates[update_type][model_fpr][clinician_fpr].keys():
+                    for i in range(len(rates[update_type][model_fpr][clinician_fpr][rate_type])):
+                        data["rate"] += rates[update_type][model_fpr][clinician_fpr][rate_type][i]
+                        data["rate_type"] += [rate_type] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
+                        data["num_updates"] +=  list(np.arange(len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])))
+                        data["model_fpr"] += [model_fpr] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
+                        data["clinician_fpr"] += [clinician_fpr] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
+                        data["update_type"] += [update_type] * len(rates[update_type][model_fpr][clinician_fpr][rate_type][i])
 
     return pd.DataFrame(data)
 

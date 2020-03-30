@@ -11,6 +11,8 @@ def summarize_stats(stats):
                 fn = getattr(np, metric)
                 res = fn(stats[stage][key])
 
+                if res.dtype.type == np.int64:
+                    res = int(res)
                 summary[stage][key][metric] = res
 
     return summary

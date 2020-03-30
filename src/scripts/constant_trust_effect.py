@@ -30,10 +30,10 @@ parser.add_argument("--temporal", default=True, type=str2bool)
 
 parser.add_argument("--clinician-fpr", default=0.2, type=float)
 parser.add_argument("--model-fpr", default=0.2, type=float)
-parser.add_argument("--clinician-trusts", default=[0.5, 0.6, 0.7, 0.8, 0.9])
+parser.add_argument("--clinician-trusts", default=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0], nargs="+")
 
 parser.add_argument("--update-type", default="feedback_full_fit_constant_trust", type=str)
-parser.add_argument("--rate-types", default=["auc", "fpr"])
+parser.add_argument("--rate-types", default=["auc", "fpr"], nargs="+")
 
 parser.add_argument("--save-dir", default="figures/temp/trust_experiments/constant", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
@@ -85,7 +85,7 @@ def main(args):
         stats[trust] = summarize_stats(stats[trust])
 
     for rate_type in args.rate_types:
-        plot_name = "{}_{}_{}_{}_{}_{}".format(args.data_type, args.model, args.train_year_limit, args.update_year_limit, args.next_year, rate_type)
+        plot_name = "{}_{}_{}_{}_{}".format(args.data_type, args.model, rate_type, args.clinician_fpr, args.model_fpr)
         plot_file_name = create_plot_file_name(args.file_name, plot_name, timestamp)
         plot_path = os.path.join(results_dir, plot_file_name)
         plot_title = ""
