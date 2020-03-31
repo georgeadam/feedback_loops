@@ -13,6 +13,8 @@ def summarize_stats(stats):
 
                 if res.dtype.type == np.int64:
                     res = int(res)
+                else:
+                    res = float(res)
                 summary[stage][key][metric] = res
 
     return summary

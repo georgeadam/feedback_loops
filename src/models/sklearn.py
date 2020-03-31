@@ -4,9 +4,17 @@ import sklearn.naive_bayes as naive_bayes
 import sklearn.svm as svm
 
 
-def lr(num_features=2, class_weight=None, warm_start=True):
+def lr(num_features=2, class_weight=None, warm_start=False):
     model = linear_model.LogisticRegression(max_iter=10000, tol=1e-3, warm_start=warm_start, class_weight=class_weight,
                                             penalty="none")
+    model.evaluate = evaluate
+
+    return model
+
+
+def lr_online(num_features=2, class_weight=None, warm_start=False):
+    model = linear_model.SGDClassifier(loss="log", max_iter=10000, tol=1e-3, warm_start=warm_start, class_weight=class_weight)
+
     model.evaluate = evaluate
 
     return model

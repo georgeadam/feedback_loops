@@ -13,9 +13,12 @@ from settings import ROOT_DIR
 STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2"]
 TEMPORAL_DATA_TYPES = ["mimic_iv", "mimic_iv_12h", "mimic_iv_24h"]
 
-mimic_iv_paths = {"mimic_iv": "mimic_iv_datasets_with_year_imputed.csv",
-                  "mimic_iv_12h": "mimic_iv_datasets_with_year_12hrs_imputed.csv",
-                  "mimic_iv_24h": "mimic_iv_datasets_with_year_24hrs_imputed.csv"}
+mimic_iv_paths = {"mimic_iv": {"path": "mimic_iv_datasets_with_year_imputed.csv", "categorical": False},
+                  "mimic_iv_12h": {"path": "mimic_iv_datasets_with_year_12hrs_imputed.csv", "categorical": False},
+                  "mimic_iv_24h": {"path": "mimic_iv_datasets_with_year_24hrs_imputed.csv", "categorical": False},
+                  "mimic_iv_demographic": {"path": "mimic_iv_datasets_with_year_48hrs_imputed_age_race_gender.csv", "categorical": True},
+                  "mimic_iv_12h_demographic": {"path": "mimic_iv_datasets_with_year_12hrs_imputed_age_race_gender.csv", "categorical": True},
+                  "mimic_iv_24h_demographic": {"path": "mimic_iv_datasets_with_year_24hrs_imputed_age_race_gender.csv", "categorical": True}}
 
 def get_data_fn(args):
     if args.data_type == "gaussian":
@@ -29,7 +32,8 @@ def get_data_fn(args):
         return generate_real_dataset(load_mimic_iii_data, args.sorted, balanced=args.balanced)
     elif "mimic_iv" in args.data_type:
         return generate_real_dataset(load_mimic_iv_data, args.sorted,
-                                     mimic_iv_paths[args.data_type], args.balanced, temporal=args.temporal)
+                                     mimic_iv_paths[args.data_type]["path"], args.balanced, temporal=args.temporal,
+                                     categorical=mimic_iv_paths[args.data_type]["categorical"], model=args.model)
     elif args.data_type == "moons":
         return generate_moons_dataset
     elif args.data_type == "support2":
@@ -186,14 +190,21 @@ def load_mimic_iii_data(*args, **kargs):
     return dataset
 
 
-def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True):
-    data = fn(path)
+def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True, categorical=False, model=None):
+    data = fn(path, categorical, model)
 
     year_idx = None
+    normalize_cols = []
 
     for i, column in enumerate(data["X"].columns):
         if column == "year":
             year_idx = i
+        elif not (column == "age" or column == "gender" or column == "ethnicity" or column.startswith("age_") or column.startswith("gender_")
+            or column.startswith("ethnicity_")):
+            if temporal:
+                normalize_cols.append(i - 1)
+            else:
+                normalize_cols.append(i)
 
     if "year" in data["X"].columns and temporal:
         years = np.unique(data["X"]["year"])
@@ -252,13 +263,13 @@ def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=
         n_test = int(len(y_copy) * n_test)
 
         if year_idx is not None and not temporal:
-            np.delete(x_copy, year_idx, 1)
+            x_copy = np.delete(x_copy, year_idx, 1)
 
         x_train, x_test, y_train, y_test = train_test_split(x_copy, y_copy, test_size=n_update + n_test,
                                                             stratify=y_copy)
         x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 
-        return x_train, y_train, x_update, y_update, x_test, y_test
+        return x_train, y_train, x_update, y_update, x_test, y_test, normalize_cols
 
     return wrapped
 
@@ -290,7 +301,7 @@ def load_support2cls_data():
     return dataset
 
 
-def load_mimic_iv_data(path):
+def load_mimic_iv_data(path, categorical=False, model="lr"):
     df_adult = pd.read_csv(os.path.join(ROOT_DIR, path))
 
     train_cols = [
@@ -303,9 +314,31 @@ def load_mimic_iv_data(path):
         "BICARBONATE", "BILIRUBIN", "CREATININE", "CHLORIDE", "GLUCOSE", "HEMATOCRIT",
         "HEMOGLOBIN", "LACTATE", "MAGNESIUM", "PHOSPHATE", "PLATELET", "POTASSIUM", "PTT",
         "INR", "PT", "SODIUM", "BUN", "WBC"]
+    if categorical:
+        train_cols.append("age")
+
+    categorical_cols = ["gender", "ethnicity"]
+
+    if categorical:
+        train_cols += categorical_cols
 
     label = 'mort_icu'
     X_df = df_adult[train_cols]
+
+    if categorical and model != "random_forest":
+        X_df = pd.get_dummies(X_df, columns=categorical_cols)
+        X_df["age"] = X_df["age"].map({"0 - 10": 5, "10 - 20": 15, "20 - 30": 25, "30 - 40": 35,
+                                       "40 - 50": 45, "50 - 60": 55, "60 - 70": 65, "70 - 80": 75, "> 80": 85})
+    elif categorical:
+        for col in categorical_cols:
+            unique_vals = np.unique(X_df[col])
+            replace = np.arange(len(unique_vals))
+            mapping = {unique_vals[i]: replace[i] for i in range(len(unique_vals))}
+            X_df[col] = X_df[col].map(mapping)
+
+        X_df["age"] = X_df["age"].map({"0 - 10": 5, "10 - 20": 15, "20 - 30": 25, "30 - 40": 35,
+                                       "40 - 50": 45, "50 - 60": 55, "60 - 70": 65, "70 - 80": 75, "> 80": 85})
+
     y_df = df_adult[label]
 
     dataset = {

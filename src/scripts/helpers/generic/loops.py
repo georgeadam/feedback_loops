@@ -27,9 +27,9 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
         print(seed)
         set_seed(seed)
 
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(n_train, n_update, n_test,
+        x_train, y_train, x_update, y_update, x_test, y_test, cols = data_fn(n_train, n_update, n_test,
                                                                        num_features=num_features)
-        scaler = get_scaler(normalization)
+        scaler = get_scaler(normalization, cols)
         scaler.fit(x_train)
         model = model_fn(num_features=x_train.shape[1])
 
@@ -153,7 +153,7 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         print(seed)
         set_seed(seed)
 
-        x_train, y_train, x_update, y_update, x_test, y_test = data_fn(0.3, 0.4, 0.3, num_features=0)
+        x_train, y_train, x_update, y_update, x_test, y_test, cols = data_fn(0.3, 0.4, 0.3, num_features=0)
         x = np.concatenate([x_train, x_update, x_test], axis=0)
         y = np.concatenate([y_train, y_update, y_test])
 
@@ -166,7 +166,8 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         years_rest = x_rest[:, 0]
         x_train, x_rest = x_train[:, 1:], x_rest[:, 1:]
 
-        scaler = get_scaler(normalization)
+        scaler = get_scaler(normalization, cols)
+
         scaler.fit(x_train)
 
         if next_year:

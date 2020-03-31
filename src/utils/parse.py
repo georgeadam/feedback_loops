@@ -21,3 +21,12 @@ def percentage(v):
        return v
     else:
         raise argparse.ArgumentTypeError('Percentage value expected. But {} was given'.format(type(v)))
+
+
+def str2none(v):
+    if v is None or (isinstance(v, str) and v.lower() == "none"):
+        return None
+    elif isinstance(v, str):
+        return v
+    else:
+        raise argparse.ArgumentTypeError("Expected str or None, but was given {}".format(type(v)))

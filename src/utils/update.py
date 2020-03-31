@@ -27,7 +27,7 @@ def get_update_fn(update_type, temporal=False):
                        fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_online_all_update_data":
         return wrapped(update_fn, cumulative_data=True, include_train=False, weight_type=None,
-                       fit_type="partial_fil", feedback=True)
+                       fit_type="partial_fit", feedback=True)
     elif update_type == "feedback_online_all_data":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
                        fit_type="partial_fit", feedback=True)
@@ -137,7 +137,7 @@ def map_update_type(update_type):
     elif update_type.startswith("feedback_full_fit_oracle"):
         return "feedback_oracle"
     elif update_type.startswith("feedback_full_fit"):
-        return "feedback_all_data"
+        return "cad"
     elif update_type.startswith("no_feedback"):
         return "no_feedback_all_data"
     elif update_type.startswith("evaluate"):
@@ -209,7 +209,8 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         else:
             model_fpr = rates["fpr"][-1]
 
-        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust, model_fpr)
+        sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust,
+                               model_fpr, scaler)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
@@ -308,7 +309,10 @@ def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_
                                                                                                           dynamic_desired_partition, threshold_validation_percentage,
                                                                                                           include_train, cumulative_data)
 
-            getattr(new_model, fit_type)(scaler.transform(all_train_x), all_train_y, all_train_weights)
+            if fit_type == "partial_fit":
+                getattr(new_model, fit_type)(scaler.transform(all_train_x), all_train_y, classes=np.array([0, 1]), sample_weight=all_train_weights)
+            else:
+                getattr(new_model, fit_type)(scaler.transform(all_train_x), all_train_y, sample_weight=all_train_weights)
             valid_prob = new_model.predict_proba(scaler.transform(all_valid_x))
 
             threshold = find_threshold(all_valid_y, valid_prob, dynamic_desired_rate, dynamic_desired_value)
@@ -316,7 +320,10 @@ def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_
         all_x, all_y, all_weights = combine_data(x_train, y_train, cumulative_x_update,
                                                  cumulative_y_update, sub_x, sub_y, train_weights,
                                                  cumulative_update_weights, sub_weights, include_train)
-        getattr(new_model, fit_type)(scaler.transform(all_x), all_y, all_weights)
+        if fit_type == "partial_fit":
+            getattr(new_model, fit_type)(scaler.transform(all_x), all_y, classes=np.array([0, 1]), sample_weight=all_weights)
+        else:
+            getattr(new_model, fit_type)(scaler.transform(all_x), all_y, sample_weight=all_weights)
 
     return threshold
 
@@ -576,10 +583,19 @@ def split_validation_data(x_train, y_train, cumulative_x_update,
             all_valid_x = x_threshold_reset
             all_valid_y = y_threshold_reset
         else:
+            neg_prop = (np.sum(sub_y == 0) + np.sum(cumulative_y_update) == 0)/ len(sub_y)
+            pos_prop = (np.sum(sub_y == 1) + np.sum(cumulative_y_update == 1)) / len(sub_y)
+
+            if (int(neg_prop * threshold_validation_percentage * len(sub_y)) <= 1 or
+                    int(pos_prop * threshold_validation_percentage * len(sub_y)) <= 1):
+                strat = None
+            else:
+                strat = np.concatenate([cumulative_y_update, sub_y])
+
             x_threshold_set, x_threshold_reset, y_threshold_set, y_threshold_reset, temp_weights, _ = train_test_split(np.concatenate([cumulative_x_update, sub_x]),
                                                                                                                        np.concatenate([cumulative_y_update, sub_y]),
                                                                                                                         np.concatenate([cumulative_update_weights, sub_weights]),
-                                                                                                                       stratify=np.concatenate([cumulative_y_update, sub_y]),
+                                                                                                                       stratify=strat,
                                                                                                                        test_size=threshold_validation_percentage)
             all_train_x = x_threshold_set
             all_train_y = y_threshold_set

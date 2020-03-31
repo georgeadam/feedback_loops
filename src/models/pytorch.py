@@ -14,7 +14,7 @@ class StandardModel(nn.Module):
         self.device = "cuda:0"
         self.criterion = WeightedCE(self.device)
 
-    def fit(self, x, y, weights=None):
+    def fit(self, x, y, sample_weight=None):
         if self.reset_optim:
             opt = get_optimizer(self.optimizer_name)
             self.optimizer = opt(self.parameters(), lr=self.lr)
@@ -29,7 +29,7 @@ class StandardModel(nn.Module):
         for i in range(self.iterations):
             out = self.forward(x)
 
-            loss = self.criterion(out, y, weights)
+            loss = self.criterion(out, y, sample_weight)
             loss.backward()
 
             self.optimizer.step()
