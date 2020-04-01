@@ -44,7 +44,7 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
             model.fit(scaler.transform(x_train_fit), y_train_fit)
             loss = model.evaluate(scaler.transform(x_test), y_test)
 
-        y_prob = model.predict_proba(x_threshold_fit)
+        y_prob = model.predict_proba(scaler.transform(x_threshold_fit))
 
         if initial_desired_rate is not None:
             threshold = find_threshold(y_threshold_fit, y_prob, initial_desired_rate, initial_desired_value)

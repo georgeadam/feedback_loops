@@ -201,10 +201,7 @@ def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=
             year_idx = i
         elif not (column == "age" or column == "gender" or column == "ethnicity" or column.startswith("age_") or column.startswith("gender_")
             or column.startswith("ethnicity_")):
-            if temporal:
                 normalize_cols.append(i - 1)
-            else:
-                normalize_cols.append(i)
 
     if "year" in data["X"].columns and temporal:
         years = np.unique(data["X"]["year"])

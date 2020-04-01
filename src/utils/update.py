@@ -602,8 +602,10 @@ def split_validation_data(x_train, y_train, cumulative_x_update,
             all_train_weights = temp_weights
 
             if cumulative_data:
-                all_valid_x = np.concatenate([x_train, x_threshold_reset])
-                all_valid_y = np.concatenate([y_train, y_threshold_reset])
+                # all_valid_x = np.concatenate([x_train, x_threshold_reset])
+                # all_valid_y = np.concatenate([y_train, y_threshold_reset])
+                all_valid_x = np.concatenate([x_threshold_reset])
+                all_valid_y = np.concatenate([y_threshold_reset])
             else:
                 all_valid_x = np.concatenate([x_threshold_reset])
                 all_valid_y = np.concatenate([y_threshold_reset])
