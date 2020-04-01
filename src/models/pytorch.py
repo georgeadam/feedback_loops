@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 
@@ -12,14 +14,30 @@ class StandardModel(nn.Module):
         self.iterations = iterations
         self.tol = tol
         self.device = "cuda:0"
-        self.criterion = WeightedCE(self.device)
 
     def fit(self, x, y, sample_weight=None):
         if self.reset_optim:
             opt = get_optimizer(self.optimizer_name)
             self.optimizer = opt(self.parameters(), lr=self.lr)
 
-        x, y = torch.from_numpy(x).float(), torch.from_numpy(y).long()
+
+        x = torch.from_numpy(x).float()
+        if self.soft:
+            y = torch.from_numpy(y).float()
+        else:
+            y = torch.from_numpy(y).long()
+
+        if self.soft:
+            y_copy = copy.deepcopy(y)
+            y_copy[y_copy == 1] = 0.9
+            y_copy[y_copy == 0] = 0.1
+
+            y_one_hot = torch.FloatTensor(len(y), 2)
+            y_one_hot.zero_()
+            y_one_hot[:, 1] = y_copy
+            y_one_hot[:, 0] = 1 - y_copy
+            y = y_one_hot
+
         x = x.to(self.device)
         y = y.to(self.device)
         no_improvement = 0
@@ -87,9 +105,9 @@ class StandardModel(nn.Module):
         y = y.to(self.device)
         out = self.forward(x)
 
-        loss = self.criterion(out, y, None)
+        # loss = self.criterion(out, y, None)
 
-        return loss.item()
+        return 0.0
 
     def predict(self, x):
         x = torch.from_numpy(x).float().to(self.device)
@@ -172,7 +190,7 @@ class EWCModel(nn.Module):
 
 class NN(StandardModel):
     def __init__(self, num_features, iterations=1000, lr=0.01, online_lr=0.01, optimizer_name="adam", reset_optim=True,
-                 tol=0.0001, hidden_layers=1, activation="relu"):
+                 tol=0.0001, hidden_layers=1, activation="relu", soft=False):
         super(NN, self).__init__(iterations=iterations, tol=tol)
 
         self.num_features = num_features
@@ -188,6 +206,8 @@ class NN(StandardModel):
 
         opt = get_optimizer(self.optimizer_name)
         self.optimizer = opt(self.parameters(), lr=self.lr)
+        self.soft = soft
+        self.criterion = WeightedCE(self.device, soft)
 
     def forward(self, x):
         for i in range(len(self.fc) - 1):

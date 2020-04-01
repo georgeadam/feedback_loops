@@ -49,8 +49,12 @@ class EWC(object):
 
 
 class WeightedCE(object):
-    def __init__(self, device):
-        self.ce = torch.nn.CrossEntropyLoss(reduction="none")
+    def __init__(self, device, soft=False):
+        if soft:
+            self.ce = MultiClassCE(reduction="none")
+        else:
+            self.ce = torch.nn.CrossEntropyLoss(reduction="none")
+
         self.device = device
 
     def __call__(self, input, target, weight):
@@ -62,3 +66,15 @@ class WeightedCE(object):
             loss = torch.mean(loss)
 
         return loss
+
+
+class MultiClassCE(object):
+    def __init__(self, reduction="none"):
+        self.logsoftmax = torch.nn.LogSoftmax(1)
+        self.reduction = reduction
+
+    def __call__(self, predictions, targets):
+        if self.reduction == "none":
+            return torch.sum(- targets * self.logsoftmax(predictions), 1)
+        else:
+            return torch.mean(torch.sum(- targets * self.logsoftmax(predictions), 1))

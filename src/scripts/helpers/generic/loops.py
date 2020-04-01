@@ -1,7 +1,6 @@
 import copy
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 from src.utils.data import TEMPORAL_DATA_TYPES
 from src.utils.metrics import compute_all_rates
@@ -156,6 +155,7 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         x_train, y_train, x_update, y_update, x_test, y_test, cols = data_fn(0.3, 0.4, 0.3, num_features=0)
         x = np.concatenate([x_train, x_update, x_test], axis=0)
         y = np.concatenate([y_train, y_update, y_test])
+
 
         model = model_fn(num_features=x.shape[1] - 1)
 

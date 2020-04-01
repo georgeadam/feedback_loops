@@ -12,7 +12,7 @@ from src.scripts.helpers.updates.result_formatting import get_result_formatting_
 from src.utils.data import get_data_fn
 from src.utils.misc import create_config_file_name, create_plot_file_name, create_stats_file_name
 from src.utils.model import get_model_fn
-from src.utils.parse import percentage, str2bool
+from src.utils.parse import percentage, str2bool, str2none
 from src.utils.update import get_update_fn
 from src.utils.save import create_file_path, save_json
 from src.utils.time import get_timestamp
@@ -22,9 +22,10 @@ from dotenv import find_dotenv, load_dotenv
 from settings import ROOT_DIR
 
 parser = ArgumentParser()
-parser.add_argument("--data-type", default="mimic_iv", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
-                                                                "mimic_iv_12h", "mimic_iv_24h"], type=str)
-parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--data-type", default="mimic_iv_demographic", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
+                                                                "mimic_iv_12h", "mimic_iv_24h", "mimic_iv_demographic",
+                                                                            "mimic_iv_12h_demographic"], type=str)
+parser.add_argument("--seeds", default=3, type=int)
 parser.add_argument("--model", default="random_forest", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
@@ -50,7 +51,7 @@ parser.add_argument("--num-features", default=2, type=int)
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.2, type=float)
 parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
-parser.add_argument("--dynamic-desired-rate", default="fpr", type=str)
+parser.add_argument("--dynamic-desired-rate", default="fpr", type=str2none)
 parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
                                                                                      "update_cumulative", "all"])
 parser.add_argument("--clinician-fpr", default=0.0, type=float)
@@ -58,8 +59,8 @@ parser.add_argument("--clinician-fpr", default=0.0, type=float)
 parser.add_argument("--rate-types", default=["auc"], nargs="+")
 
 # Only for pytorch models trained with GD
-parser.add_argument("--lr", default=0.01, type=float)
-parser.add_argument("--online-lr", default=0.01, type=float)
+parser.add_argument("--lr", default=0.0001, type=float)
+parser.add_argument("--online-lr", default=0.0001, type=float)
 parser.add_argument("--optimizer", default="adam", type=str)
 parser.add_argument("--reset-optim", default=False, type=str2bool)
 parser.add_argument("--iterations", default=3000, type=int)
@@ -67,12 +68,14 @@ parser.add_argument("--importance", default=100000.0, type=float)
 parser.add_argument("--tol", default=0.0001, type=float)
 parser.add_argument("--hidden-layers", default=0, type=int)
 parser.add_argument("--activation", default="Tanh", type=str)
+parser.add_argument("--soft", default=False, type=str2bool)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["no_feedback_full_fit", "feedback_full_fit", "evaluate"], nargs="+")
+parser.add_argument("--update-types", default=["feedback_full_fit", "no_feedback_full_fit", "feedback_full_fit_oracle", "feedback_full_fit_random", "evaluate"], nargs="+")
+parser.add_argument("--limit-plot-range", default=True, type=str2bool)
 
-parser.add_argument("--save-dir", default="figures/dynamic_threshold", type=str)
+parser.add_argument("--save-dir", default="figures/temp/regularization_threshold_weight_weight", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
@@ -104,11 +107,6 @@ def main(args):
         update_types = ["feedback_full_fit", "no_feedback_full_fit",
                         "feedback_full_fit_{}".format(args.update_types), "no_feedback_full_fit_{}".format(args.update_types),
                         "evaluate"]
-    elif len(args.update_types) == 1:
-        update_types = ["feedback_full_fit", "no_feedback_full_fit",
-                        "feedback_full_fit_{}".format(args.update_types[0]),
-                        "no_feedback_full_fit_{}".format(args.update_types[0]),
-                        "evaluate"]
     else:
         update_types = args.update_types
 
@@ -138,7 +136,7 @@ def main(args):
     plot_path = os.path.join(results_dir, plot_file_name)
     plot_title = ""
     create_file_path(plot_path)
-    plot_fn(data, args.rate_types, update_types, plot_title, plot_path)
+    plot_fn(data, args.rate_types, update_types, args.limit_plot_range, plot_title, plot_path)
 
     config_file_name = create_config_file_name(args.file_name, plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)

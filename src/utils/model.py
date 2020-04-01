@@ -17,7 +17,7 @@ def get_model_fn(args):
     elif args.model == "lr_pytorch":
         return wrapped(NN, iterations=args.iterations, lr=args.lr, online_lr=args.online_lr, optimizer_name=args.optimizer,
                        reset_optim=args.reset_optim, tol=args.tol, hidden_layers=args.hidden_layers,
-                       activation=args.activation)
+                       activation=args.activation, soft=args.soft)
     elif args.model == "linear_svm":
         return wrapped(linear_svm, warm_start=args.warm_start, class_weight=args.class_weight)
     elif args.model == "nn":
