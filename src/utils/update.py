@@ -31,10 +31,10 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "feedback_online_all_data":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
                        fit_type="partial_fit", feedback=True)
-    elif update_type == "feedback_full_fit":
+    elif update_type == "feedback_full_fit" or update_type == "feedback_full_fit_cad":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
                 fit_type="fit", feedback=True)
-    elif update_type == "feedback_full_fit_past_year":
+    elif update_type == "feedback_full_fit_past_year" or update_type == "feedback_full_fit_past_year_cad":
         return wrapped(update_fn, cumulative_data=False, include_train=False, weight_type=None,
                 fit_type="fit", feedback=True)
     elif update_type == "feedback_online_all_update_data_weighted":
@@ -76,11 +76,14 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "feedback_full_fit_drop":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop",
                        fit_type="fit", feedback=True)
-    elif update_type == "feedback_full_fit_partial_confidence":
-        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="partial_confidence",
+    elif update_type == "feedback_full_fit_drop_low_confidence":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop_low_confidence",
                        fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_random":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="random",
+                       fit_type="fit", feedback=True)
+    elif update_type == "feedback_full_fit_drop_everything":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop_everything",
                        fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_oracle":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="oracle",
@@ -97,8 +100,8 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "no_feedback_full_fit_drop":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop",
                        fit_type="fit", feedback=False)
-    elif update_type == "no_feedback_full_fit_partial_confidence":
-        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="partial_confidence",
+    elif update_type == "no_feedback_full_fit_drop_low_confidence":
+        return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop_low_confidence",
                        fit_type="fit", feedback=False)
     elif update_type == "no_feedback_full_fit_oracle":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type=None,
@@ -115,8 +118,14 @@ def map_update_type(update_type):
         return "no_feedback_confidence"
     elif update_type.startswith("no_feedback_full_fit_drop"):
         return "no_feedback_drop"
-    elif update_type.startswith("no_feedback_full_fit_partial_confidence"):
-        return "no_feedback_partial_confidence"
+    elif update_type.startswith("feedback_full_fit_cad"):
+        return "refit_all_data"
+    elif update_type.startswith("feedback_full_fit_past_year_cad"):
+        return "refit_past_year"
+    elif update_type.startswith("feedback_full_fit_drop_everything"):
+        return "feedback_drop_all_pos"
+    elif update_type.startswith("no_feedback_full_fit_drop_low_confidence"):
+        return "no_feedback_drop_low_confidence"
     elif update_type.startswith("no_feedback_full_fit_oracle"):
         return "no_feedback_oracle"
     elif update_type.startswith("no_feedback_full_fit_past_year"):
@@ -124,11 +133,11 @@ def map_update_type(update_type):
     elif update_type.startswith("feedback_full_fit_confidence"):
         return "feedback_confidence"
     elif update_type.startswith("feedback_full_fit_drop"):
-        return "feedback_drop"
+        return "feedback_drop_lc"
     elif update_type.startswith("feedback_full_fit_random"):
-        return "feedback_random"
-    elif update_type.startswith("feedback_full_fit_partial_confidence"):
-        return "feedback_partial_confidence"
+        return "feedback_drop_random"
+    elif update_type.startswith("feedback_full_fit_drop_low_confidence"):
+        return "feedback_drop_low_confidence"
     elif update_type.startswith("feedback_full_fit_past_year"):
         return "feedback_past_year"
     elif update_type.startswith("feedback_online_all_update_data"):
@@ -271,8 +280,8 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
             initial_fpr = compute_initial_fpr(model, threshold, x_rest[sub_idx], y_rest[sub_idx], scaler)
             model_fpr = initial_fpr
         else:
-            model_fpr = compute_model_fpr(model, x_train, y_train, threshold, scaler)
-
+            # model_fpr = compute_model_fpr(model, x_train, y_train, threshold, scaler)
+            model_fpr = rates["fpr"][-1]
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr,
                                clinician_trust, model_fpr, scaler)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_value, threshold)
@@ -321,7 +330,11 @@ def make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_
             valid_prob = new_model.predict_proba(scaler.transform(all_valid_x))
 
             temp_idx = all_valid_weights !=0
+            prev_threshold = threshold
             threshold = find_threshold(all_valid_y[temp_idx], valid_prob[temp_idx], dynamic_desired_rate, dynamic_desired_value)
+
+            if threshold is None:
+                threshold = prev_threshold
 
         all_x, all_y, all_weights = combine_data(x_train, y_train, cumulative_x_update,
                                                  cumulative_y_update, sub_x, sub_y, train_weights,
@@ -366,7 +379,7 @@ def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, 
 def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scaler):
     if intermediate:
         if threshold is None:
-            pred_prob = new_model.predict_proba(x_test)
+            pred_prob = new_model.predict_proba(scaler.transform(x_test))
             new_pred = new_model.predict(scaler.transform(x_test))
         else:
             pred_prob = new_model.predict_proba(scaler.transform(x_test))
@@ -386,8 +399,6 @@ def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scal
                     rates[key].append(updated_rates[key])
 
         rates["fp_prop"].append(rates["fp_count"][-1] / rates["total_samples"][-1])
-
-
 
 
 def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):
@@ -466,7 +477,7 @@ def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_
         sub_weights[pos_idx] = 0
 
         weights = sub_weights
-    elif weight_type == "partial_confidence":
+    elif weight_type == "drop_low_confidence":
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
         sorted_y = sub_y[sorted_idx]
@@ -493,6 +504,12 @@ def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_
         pos_percentage = (np.sum(sub_y == 1) / len(sub_y))
         drop_percentage = np.max((pos_percentage - 0.1) / pos_percentage, 0)
         drop_idx = np.random.choice(pos_idx, size=int(drop_percentage * len(pos_idx)), replace=False)
+        sub_weights = np.ones(len(sub_y))
+        sub_weights[drop_idx] = 0
+
+        weights = sub_weights
+    elif weight_type == "drop_everything":
+        drop_idx = np.where(sub_conf > threshold)[0]
         sub_weights = np.ones(len(sub_y))
         sub_weights[drop_idx] = 0
 
@@ -664,5 +681,6 @@ def compute_model_fpr(model, x, y, threshold, scaler):
     y_pred = y_prob[:, 1] > threshold
 
     fp_idx = np.logical_and(y == 0, y_pred == 1)
+    neg = np.sum(y == 0)
 
-    return float(np.sum(fp_idx) / len(y))
+    return float(np.sum(fp_idx) / neg)

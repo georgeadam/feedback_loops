@@ -60,7 +60,7 @@ def f1_score(y, y_pred):
 def compute_all_rates(y, y_pred, y_prob, initial=False):
     samples = float(len(y))
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
-    tnr, fpr, fnr, tpr = tn / samples, fp / samples, fn / samples, tp / samples
+    tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), fn / (tp + fn), tp / (tp + fn)
 
     precision = precision_score(y, y_pred)
     if y_prob.shape[1] > 1:
