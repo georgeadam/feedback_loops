@@ -3,6 +3,7 @@ import sklearn.linear_model as linear_model
 import sklearn.naive_bayes as naive_bayes
 import sklearn.svm as svm
 
+import xgboost as xgb
 
 def lr(num_features=2, class_weight=None, warm_start=False):
     model = linear_model.LogisticRegression(max_iter=10000, tol=1e-3, warm_start=warm_start, class_weight=class_weight,
@@ -49,7 +50,8 @@ def adaboost(num_features=2, class_weight=None):
 
 
 def xgboost(num_features=2, class_weight=None, warm_start=True):
-    model = ensemble.GradientBoostingClassifier(warm_start=warm_start)
+    # model = ensemble.GradientBoostingClassifier(warm_start=warm_start)
+    model = xgb.sklearn.XGBClassifier(n_jobs=6, learning_rate=0.1, max_depth=3)
     model.evaluate = evaluate
 
     return model

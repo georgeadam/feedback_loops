@@ -1,4 +1,5 @@
-from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost, lr_online
+from sklearn.calibration import CalibratedClassifierCV
+from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost, lr_online, evaluate
 from src.models.pytorch import NN
 
 

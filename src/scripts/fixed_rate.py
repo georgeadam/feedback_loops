@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import seaborn as sns
 
-from src.scripts.helpers.generic import train_update_loop, gold_standard_loop
+from src.scripts.helpers.generic.loops import train_update_loop_static, gold_standard_loop
 
 sns.set()
 import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ from src.utils.misc import create_config_file_name, create_plot_file_name, creat
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
 from src.utils.update import get_update_fn
-from src.utils.save import create_file_path, save_json, CONFIG_FILE, STATS_FILE
+from src.utils.save import create_file_path, save_json
 from src.utils.time import get_timestamp
 
 from argparse import ArgumentParser
@@ -23,7 +23,7 @@ from settings import ROOT_DIR
 parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iii", choices=["mimic_iii", "mimic_iv", "support2", "gaussian"], type=str)
 parser.add_argument("--seeds", default=10, type=int)
-parser.add_argument("--model", default="xgboost", type=str)
+parser.add_argument("--model", default="lr", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 
@@ -36,10 +36,13 @@ parser.add_argument("--sorted", default=False, type=str2bool)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
 parser.add_argument("--initial-desired-value", default=0.1, type=float)
+parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
 
 parser.add_argument("--dynamic-desired-rate", default=None, type=str)
+parser.add_argument("--dynamic-desired-partition", default="train", type=str)
 
-parser.add_argument("--rate-types", default=["fp_conf", "pos_conf"], nargs="+")
+parser.add_argument("--rate-types", default=["auc", "fpr", "fnr", "tnr"], nargs="+")
+parser.add_argument("--clinician-fpr", default=0.2, type=float)
 # parser.add_argument("--rate-types", default=["loss"], nargs="+")
 
 parser.add_argument("--lr", default=0.01, type=float)
@@ -55,10 +58,10 @@ parser.add_argument("--activation", default="Tanh", type=str)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-type", default="evaluate", type=str)
+parser.add_argument("--update-type", default="feedback_full_fit", type=str)
 
 parser.add_argument("--save-dir", default="figures/temp", type=str)
-parser.add_argument("--file-name", default="intuitive", type=str, choices=["timestamp", "intuitive"])
+parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
 def results_to_dataframe(rates):
@@ -140,14 +143,16 @@ def main(args):
     model_fn = get_model_fn(args)
     update_fn = get_update_fn(args.update_type)
 
-    rates, stats = train_update_loop(model_fn, args.n_train, args.n_update,
-                                     args.n_test, args.num_updates, args.num_features,
-                                     args.initial_desired_rate, args.initial_desired_value, args.dynamic_desired_rate,
-                                     data_fn, update_fn, args.bad_model, args.worst_case,
-                                     args.seeds)
+    rates, stats = train_update_loop_static(model_fn, args.n_train, args.n_update,
+                                            args.n_test, args.num_updates, args.num_features,
+                                            args.initial_desired_rate, args.initial_desired_value,
+                                            args.threshold_validation_percentage, args.clinician_fpr, args.dynamic_desired_rate, args.dynamic_desired_partition,
+                                            data_fn, update_fn, args.bad_model, args.worst_case,
+                                            args.seeds)
     gold_standard = gold_standard_loop(model_fn, args.n_train, args.n_update,
                                        args.n_test, args.num_features,
-                                       args.initial_desired_rate, args.initial_desired_value, data_fn, args.seeds)
+                                       args.initial_desired_rate, args.initial_desired_value,
+                                       args.threshold_validation_percentage, data_fn, args.seeds)
 
     data = results_to_dataframe(rates)
     stats["gold_standard"] = gold_standard

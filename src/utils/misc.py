@@ -1,4 +1,4 @@
-from src.utils.save import CONFIG_FILE, STATS_FILE
+from src.utils.save import CONFIG_FILE, STATS_FILE, CSV_FILE
 
 
 
@@ -39,3 +39,12 @@ def create_stats_file_name(file_name, plot_name, timestamp):
         stats_file_name = STATS_FILE.format(plot_name, "")
 
     return stats_file_name
+
+
+def create_csv_file_name(file_name, plot_name, timestamp):
+    if file_name == "timestamp":
+        csv_file_name = CSV_FILE.format(plot_name, timestamp)
+    else:
+        csv_file_name = CSV_FILE.format(plot_name, "")
+
+    return csv_file_name

@@ -22,7 +22,7 @@ def plot_conditional_trust_static(data, rate_types, model_fpr, title, plot_path)
             if label == "0.0":
                 labels.append("Blind Trust")
             else:
-                labels.append(label)
+                labels.append("Conditional Trust")
 
     ax.set_xlim([0, np.max(data["num_updates"])])
     if rate_types[0] == "auc":
@@ -35,7 +35,7 @@ def plot_conditional_trust_static(data, rate_types, model_fpr, title, plot_path)
     ax.set_xlim([0, np.max(data["num_updates"])])
     fig.suptitle(title)
 
-    legend = ax.legend(title="Clinician FPR", labels=labels, title_fontsize=30, borderaxespad=0.)
+    legend = ax.legend(title="Trust Type", labels=labels, title_fontsize=30, borderaxespad=0.)
     legend.texts[0].set_size(24)
 
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
@@ -61,7 +61,7 @@ def plot_conditional_trust_temporal(data, rate_types, model_fpr, title, plot_pat
             if label == "0.0":
                 labels.append("Blind Trust")
             else:
-                labels.append(label)
+                labels.append("Conditional Trust")
 
     if rate_types[0] == "auc":
         ax.set_ylim([0.5, 1.0])
@@ -76,7 +76,7 @@ def plot_conditional_trust_temporal(data, rate_types, model_fpr, title, plot_pat
 
     fig.suptitle(title)
 
-    legend = ax.legend(title="Clinician FPR", labels=labels, title_fontsize=30, borderaxespad=0.)
+    legend = ax.legend(title="Trust Type", labels=labels, title_fontsize=30, borderaxespad=0.)
     legend.texts[0].set_size(24)
 
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')

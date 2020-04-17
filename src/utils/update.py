@@ -79,12 +79,24 @@ def get_update_fn(update_type, temporal=False):
     elif update_type == "feedback_full_fit_drop_low_confidence":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop_low_confidence",
                        fit_type="fit", feedback=True)
-    elif update_type == "feedback_full_fit_random":
+    elif update_type == "feedback_full_fit_drop_random":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="random",
                        fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_drop_everything":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="drop_everything",
                        fit_type="fit", feedback=True)
+    elif update_type == "feedback_full_fit_flip_everything":
+        return wrapped(update_fn, cumulative_data=True, include_train=True,
+                       fit_type="fit", feedback=True, flip_type="flip_everything")
+    elif update_type == "feedback_full_fit_flip_oracle":
+        return wrapped(update_fn, cumulative_data=True, include_train=True,
+                       fit_type="fit", feedback=True, flip_type="oracle")
+    elif update_type == "feedback_full_fit_flip_random":
+        return wrapped(update_fn, cumulative_data=True, include_train=True,
+                       fit_type="fit", feedback=True, flip_type="random")
+    elif update_type == "feedback_full_fit_flip_low_confidence":
+        return wrapped(update_fn, cumulative_data=True, include_train=True,
+                       fit_type="fit", feedback=True, flip_type="flip_low_confidence")
     elif update_type == "feedback_full_fit_oracle":
         return wrapped(update_fn, cumulative_data=True, include_train=True, weight_type="oracle",
                        fit_type="fit", feedback=True)
@@ -120,6 +132,14 @@ def map_update_type(update_type):
         return "no_feedback_drop"
     elif update_type.startswith("feedback_full_fit_cad"):
         return "refit_all_data"
+    elif update_type.startswith("feedback_full_fit_flip_everything"):
+        return "feedback_flip_all_pos"
+    elif update_type.startswith("feedback_full_fit_flip_oracle"):
+        return "feedback_flip_oracle"
+    elif update_type.startswith("feedback_full_fit_flip_random"):
+        return "feedback_flip_random"
+    elif update_type.startswith("feedback_full_fit_flip_low_confidence"):
+        return "feedback_flip_low_confidence"
     elif update_type.startswith("feedback_full_fit_past_year_cad"):
         return "refit_past_year"
     elif update_type.startswith("feedback_full_fit_drop_everything"):
@@ -132,9 +152,7 @@ def map_update_type(update_type):
         return "no_feedback_past_year"
     elif update_type.startswith("feedback_full_fit_confidence"):
         return "feedback_confidence"
-    elif update_type.startswith("feedback_full_fit_drop"):
-        return "feedback_drop_lc"
-    elif update_type.startswith("feedback_full_fit_random"):
+    elif update_type.startswith("feedback_full_fit_drop_random"):
         return "feedback_drop_random"
     elif update_type.startswith("feedback_full_fit_drop_low_confidence"):
         return "feedback_drop_low_confidence"
@@ -198,7 +216,7 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
                          feedback=False, update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0,
                          clinician_trust=1.0, threshold=None, dynamic_desired_rate=None,
                          dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2,
-                         scaler=None):
+                         scaler=None, flip_type=None):
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
@@ -215,16 +233,17 @@ def update_model_generic(model, x_train, y_train, x_update, y_update, x_test, y_
         sub_x = x_update[idx_start: idx_end, :]
         sub_y = copy.deepcopy(y_update[idx_start: idx_end])
         sub_y_unmodified = copy.deepcopy(y_update[idx_start: idx_end])
-        sub_conf = new_model.predict_proba(sub_x)[:, 1]
+        sub_conf = new_model.predict_proba(scaler.transform(sub_x))[:, 1]
 
         if i == 0:
-            initial_fpr = compute_initial_fpr(model, threshold, sub_x, sub_y, scaler)
+            initial_fpr = compute_initial_fpr(new_model, threshold, sub_x, sub_y, scaler)
             model_fpr = initial_fpr
         else:
-            model_fpr = compute_model_fpr(model, x_train, y_train, threshold, scaler)
+            model_fpr = compute_model_fpr(new_model, x_train, y_train, threshold, scaler)
 
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr, clinician_trust,
                                model_fpr, scaler)
+        sub_y = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_value, threshold)
         update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
@@ -247,7 +266,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
                           feedback=False, update=True, next_year=True, trust_fn=full_trust, clinician_fpr=0.0,
                           clinician_trust=1.0, intermediate=False, threshold=None, dynamic_desired_rate=None,
                           dynamic_desired_value=None, dynamic_desired_partition=None, threshold_validation_percentage=0.2,
-                          scaler=None):
+                          scaler=None, flip_type=None):
     new_model = copy.deepcopy(model)
 
     cumulative_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
@@ -280,10 +299,11 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, train_
             initial_fpr = compute_initial_fpr(model, threshold, x_rest[sub_idx], y_rest[sub_idx], scaler)
             model_fpr = initial_fpr
         else:
-            # model_fpr = compute_model_fpr(model, x_train, y_train, threshold, scaler)
-            model_fpr = rates["fpr"][-1]
+            model_fpr = compute_model_fpr(new_model, x_train, y_train, threshold, scaler)
+            # model_fpr = rates["fpr"][-1]
         sub_y = replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn, clinician_fpr,
                                clinician_trust, model_fpr, scaler)
+        sub_y = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_value, threshold)
         update_scaler(x_train, cumulative_x_update, sub_x, include_train, scaler)
         threshold = make_update(x_train, y_train, cumulative_x_update, cumulative_y_update, sub_x, sub_y, train_weights,
@@ -461,22 +481,6 @@ def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_
         sub_weights = copy.deepcopy(sub_conf)
         sub_weights[sub_idx] = 1
         weights = sub_weights
-    elif weight_type == "drop":
-        sorted_idx = np.argsort(sub_conf)
-        unsorted_idx = np.argsort(sorted_idx)
-        sorted_y = sub_y[sorted_idx]
-        sorted_pos_idx = np.where(sorted_y == 1)[0]
-        sorted_pos_idx = sorted_pos_idx[: int(0.66 * len(sorted_pos_idx))]
-
-        temp_idx = unsorted_idx[sorted_pos_idx]
-        pos_idx = np.where(sub_conf[temp_idx] > threshold)[0]
-        pos_idx = temp_idx[pos_idx]
-        neg_idx = np.delete(np.arange(len(sub_y)), pos_idx)
-        sub_weights = copy.deepcopy(sub_conf)
-        sub_weights[neg_idx] = 1
-        sub_weights[pos_idx] = 0
-
-        weights = sub_weights
     elif weight_type == "drop_low_confidence":
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)
@@ -490,7 +494,7 @@ def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_
         neg_idx = np.delete(np.arange(len(sub_y)), pos_idx)
         sub_weights = copy.deepcopy(sub_conf)
         sub_weights[neg_idx] = 1
-        sub_weights[pos_idx] = sub_conf[pos_idx]
+        sub_weights[pos_idx] = 0
 
         weights = sub_weights
     elif weight_type == "oracle":
@@ -518,6 +522,41 @@ def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, dynamic_desired_
         weights = np.array(np.ones(len(sub_y)))
 
     return weights
+
+
+def flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold):
+    if flip_type == "flip_low_confidence":
+        sorted_idx = np.argsort(sub_conf)
+        unsorted_idx = np.argsort(sorted_idx)
+        sorted_y = sub_y[sorted_idx]
+        sorted_pos_idx = np.where(sorted_y == 1)[0]
+        sorted_pos_idx = sorted_pos_idx[: int(0.66 * len(sorted_pos_idx))]
+
+        temp_idx = unsorted_idx[sorted_pos_idx]
+        pos_idx = np.where(sub_conf[temp_idx] > threshold)[0]
+        pos_idx = temp_idx[pos_idx]
+        new_y = copy.deepcopy(sub_y)
+        new_y[pos_idx] = 0
+    elif flip_type == "oracle":
+        fp_idx = np.logical_and(sub_conf > threshold, sub_y_unmodified == 0)
+        new_y = copy.deepcopy(sub_y)
+        new_y[fp_idx] = 0
+    elif flip_type == "random":
+        pos_idx = np.where(sub_conf > threshold)[0]
+        pos_percentage = (np.sum(sub_y == 1) / len(sub_y))
+        flip_percentage = np.max((pos_percentage - 0.1) / pos_percentage, 0)
+        flip_idx = np.random.choice(pos_idx, size=int(flip_percentage * len(pos_idx)), replace=False)
+        new_y = copy.deepcopy(sub_y)
+        new_y[flip_idx] = 0
+    elif flip_type == "flip_everything":
+        flip_idx = np.where(sub_conf > threshold)[0]
+        new_y = copy.deepcopy(sub_y)
+        new_y[flip_idx] = 0
+    else:
+        new_y = sub_y
+
+    return new_y
+
 
 
 def build_cumulative_data(cumulative_data, cumulative_x_update, cumulative_y_update, sub_x, sub_y):

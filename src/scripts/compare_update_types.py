@@ -10,7 +10,7 @@ from src.scripts.helpers.generic.loops import get_update_loop
 from src.scripts.helpers.updates.plotting import get_plot_fn
 from src.scripts.helpers.updates.result_formatting import get_result_formatting_fn
 from src.utils.data import get_data_fn
-from src.utils.misc import create_config_file_name, create_plot_file_name, create_stats_file_name
+from src.utils.misc import create_config_file_name, create_plot_file_name, create_csv_file_name
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool, str2none
 from src.utils.update import get_update_fn
@@ -25,8 +25,8 @@ parser = ArgumentParser()
 parser.add_argument("--data-type", default="mimic_iv_demographic", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
                                                                 "mimic_iv_12h", "mimic_iv_24h", "mimic_iv_demographic",
                                                                             "mimic_iv_12h_demographic"], type=str)
-parser.add_argument("--seeds", default=3, type=int)
-parser.add_argument("--model", default="random_forest", type=str)
+parser.add_argument("--seeds", default=1, type=int)
+parser.add_argument("--model", default="xgboost", type=str)
 parser.add_argument("--warm-start", default=False, type=str2bool)
 parser.add_argument("--class-weight", default=None, type=str)
 parser.add_argument("--balanced", default=False, type=str2bool)
@@ -49,7 +49,7 @@ parser.add_argument("--sorted", default=False, type=str2bool)
 parser.add_argument("--num-features", default=2, type=int)
 
 parser.add_argument("--initial-desired-rate", default="fpr", type=str)
-parser.add_argument("--initial-desired-value", default=0.2, type=float)
+parser.add_argument("--initial-desired-value", default=0.05, type=float)
 parser.add_argument("--threshold-validation-percentage", default=0.2, type=float)
 parser.add_argument("--dynamic-desired-rate", default="fpr", type=str2none)
 parser.add_argument("--dynamic-desired-partition", default="all", type=str, choices=["train", "update_current",
@@ -72,10 +72,10 @@ parser.add_argument("--soft", default=False, type=str2bool)
 
 parser.add_argument("--bad-model", default=False, type=str2bool)
 parser.add_argument("--worst-case", default=False, type=str2bool)
-parser.add_argument("--update-types", default=["feedback_full_fit", "no_feedback_full_fit", "feedback_full_fit_oracle", "feedback_full_fit_random", "evaluate"], nargs="+")
-parser.add_argument("--limit-plot-range", default=True, type=str2bool)
+parser.add_argument("--update-types", default=["feedback_full_fit_drop_random", "feedback_full_fit_drop_everything", "feedback_full_fit_oracle"], nargs="+")
+parser.add_argument("--limit-plot-range", default=False, type=str2bool)
 
-parser.add_argument("--save-dir", default="figures/temp/regularization_threshold_weight_weight", type=str)
+parser.add_argument("--save-dir", default="figures/temp/temp", type=str)
 parser.add_argument("--file-name", default="timestamp", type=str, choices=["timestamp", "intuitive"])
 
 
@@ -128,8 +128,8 @@ def main(args):
         stats[update_type] = temp_stats
 
     data = result_formatting_fn(rates, args.train_year_limit, args.update_year_limit)
-    for update_type in update_types:
-        stats[update_type] = summarize_stats(stats[update_type])
+    # for update_type in update_types:
+    #     stats[update_type] = summarize_stats(stats[update_type])
 
     plot_name = "{}_{}_{}_{}_{}_{}".format(args.data_type, args.model, args.train_year_limit, args.update_year_limit, args.next_year, args.rate_types)
     plot_file_name = create_plot_file_name(args.file_name, plot_name, timestamp)
@@ -142,9 +142,9 @@ def main(args):
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
 
-    stats_file_name = create_stats_file_name(args.file_name, plot_name, timestamp)
-    stats_path = os.path.join(results_dir, stats_file_name)
-    save_json(stats, stats_path)
+    csv_file_name = create_csv_file_name(args.file_name, plot_name, timestamp)
+    csv_path = os.path.join(results_dir, csv_file_name)
+    data.to_csv(csv_path, index=False, header=True)
 
 
 if __name__ == "__main__":

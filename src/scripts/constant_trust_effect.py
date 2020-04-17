@@ -10,7 +10,7 @@ from src.scripts.helpers.trust.parse import parent_parser
 from src.scripts.helpers.trust.plotting import get_plot_fn
 from src.scripts.helpers.trust.result_formatting import get_result_formatting_fn
 from src.utils.data import get_data_fn
-from src.utils.misc import create_config_file_name, create_plot_file_name
+from src.utils.misc import create_config_file_name, create_plot_file_name, create_csv_file_name
 from src.utils.model import get_model_fn
 from src.utils.parse import percentage, str2bool
 from src.utils.update import get_update_fn
@@ -23,14 +23,15 @@ from settings import ROOT_DIR
 
 parser = ArgumentParser(parents=[parent_parser], conflict_handler="resolve")
 parser.add_argument("--data-type", default="mimic_iv", choices=["sklearn", "mimic_iii", "mimic_iv", "support2", "gaussian",
-                                                                "mimic_iv_12h", "mimic_iv_24h"], type=str)
+                                                                "mimic_iv_12h", "mimic_iv_24h", "mimic_iv_demographic",
+                                                                            "mimic_iv_12h_demographic"], type=str)
 parser.add_argument("--seeds", default=1, type=int)
 parser.add_argument("--model", default="lr", type=str)
 parser.add_argument("--temporal", default=True, type=str2bool)
 
 parser.add_argument("--clinician-fpr", default=0.2, type=float)
 parser.add_argument("--model-fpr", default=0.2, type=float)
-parser.add_argument("--clinician-trusts", default=[0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 1.0], nargs="+")
+parser.add_argument("--clinician-trusts", default=[0.5, 0.6, 0.7, 0.8, 0.9, 1.0], nargs="+")
 
 parser.add_argument("--update-type", default="feedback_full_fit_constant_trust", type=str)
 parser.add_argument("--rate-types", default=["auc", "fpr"], nargs="+")
@@ -95,6 +96,10 @@ def main(args):
     config_file_name = create_config_file_name(args.file_name, plot_name, timestamp)
     config_path = os.path.join(results_dir, config_file_name)
     save_json(config, config_path)
+
+    csv_file_name = create_csv_file_name(args.file_name, plot_name, timestamp)
+    csv_path = os.path.join(results_dir, csv_file_name)
+    data.to_csv(csv_path, index=False, header=True)
 
 
 if __name__ == "__main__":
