@@ -1,0 +1,3 @@
+misc:
+  seeds: 1
+  update_type: feedback_full_fit_constant_trust
