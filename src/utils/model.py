@@ -10,25 +10,26 @@ def wrapped(fn, **kwargs):
     return inside
 
 
-def get_model_fn(args):
-    if args.model == "lr":
-        return wrapped(lr, warm_start=args.warm_start, class_weight=args.class_weight)
-    elif args.model == "lr_online":
-        return wrapped(lr_online, warm_start=args.warm_start, class_weight=args.class_weight)
-    elif args.model == "lr_pytorch":
-        return wrapped(NN, iterations=args.iterations, lr=args.lr, online_lr=args.online_lr, optimizer_name=args.optimizer,
-                       reset_optim=args.reset_optim, tol=args.tol, hidden_layers=args.hidden_layers,
-                       activation=args.activation, soft=args.soft)
-    elif args.model == "linear_svm":
-        return wrapped(linear_svm, warm_start=args.warm_start, class_weight=args.class_weight)
-    elif args.model == "nn":
-        return wrapped(NN, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations, optimizer_name=args.optimizer,
-                       reset_optim=args.reset_optim, tol=args.tol, hidden_layers=args.hidden_layers, activation=args.activation)
-    elif args.model == "svm_rbf":
+def get_model_fn(model_args, pytorch_args):
+    if model_args.type == "lr":
+        return wrapped(lr, warm_start=model_args.warm_start, class_weight=model_args.class_weight)
+    elif model_args.type == "lr_online":
+        return wrapped(lr_online, warm_start=model_args.warm_start, class_weight=model_args.class_weight)
+    elif model_args.type == "lr_pytorch":
+        return wrapped(NN, iterations=pytorch_args.iterations, lr=pytorch_args.lr, online_lr=pytorch_args.online_lr,
+                       optimizer_name=pytorch_args.optimizer, reset_optim=pytorch_args.reset_optim, tol=pytorch_args.tol,
+                       hidden_layers=pytorch_args.hidden_layers, activation=pytorch_args.activation, soft=pytorch_args.soft)
+    elif model_args.type == "linear_svm":
+        return wrapped(linear_svm, warm_start=model_args.warm_start, class_weight=model_args.class_weight)
+    elif model_args.type == "nn":
+        return wrapped(NN, lr=pytorch_args.lr, online_lr=pytorch_args.online_lr, iterations=pytorch_args.iterations,
+                       optimizer_name=pytorch_args.optimizer, reset_optim=pytorch_args.reset_optim, tol=pytorch_args.tol,
+                       hidden_layers=pytorch_args.hidden_layers, activation=pytorch_args.activation)
+    elif model_args.type == "svm_rbf":
         return rbf_svm
-    elif args.model == "random_forest":
-        return wrapped(random_forest, class_weight=args.class_weight)
-    elif args.model == "adaboost":
+    elif model_args.type == "random_forest":
+        return wrapped(random_forest, class_weight=model_args.class_weight)
+    elif model_args.type == "adaboost":
         return adaboost
-    elif args.model == "xgboost":
-        return wrapped(xgboost, warm_start=args.warm_start)
+    elif model_args.type == "xgboost":
+        return wrapped(xgboost, warm_start=model_args.warm_start)

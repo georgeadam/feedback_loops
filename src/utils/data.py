@@ -20,24 +20,24 @@ mimic_iv_paths = {"mimic_iv": {"path": "mimic_iv_datasets_with_year_imputed.csv"
                   "mimic_iv_12h_demographic": {"path": "mimic_iv_datasets_with_year_12hrs_imputed_age_race_gender.csv", "categorical": True},
                   "mimic_iv_24h_demographic": {"path": "mimic_iv_datasets_with_year_24hrs_imputed_age_race_gender.csv", "categorical": True}}
 
-def get_data_fn(args):
-    if args.data_type == "gaussian":
-        if hasattr(args, "m0"):
-            return generate_gaussian_dataset(args.m0, args.m1, args.s0, args.s1, args.p0, args.p1)
+def get_data_fn(d, m):
+    if d.type == "gaussian":
+        if hasattr(d, "m0"):
+            return generate_gaussian_dataset(d.m0, d.m1, d.s0, d.s1, d.p0, d.p1)
         else:
             return generate_gaussian_dataset()
-    elif args.data_type == "sklearn":
+    elif d.type == "sklearn":
         return generate_sklearn_make_classification_dataset
-    elif args.data_type == "mimic_iii":
-        return generate_real_dataset(load_mimic_iii_data, args.sorted, balanced=args.balanced)
-    elif "mimic_iv" in args.data_type:
-        return generate_real_dataset(load_mimic_iv_data, args.sorted,
-                                     mimic_iv_paths[args.data_type]["path"], args.balanced, temporal=args.temporal,
-                                     categorical=mimic_iv_paths[args.data_type]["categorical"], model=args.model)
-    elif args.data_type == "moons":
+    elif d.type == "mimic_iii":
+        return generate_real_dataset(load_mimic_iii_data, balanced=d.balanced)
+    elif "mimic_iv" in d.type:
+        return generate_real_dataset(load_mimic_iv_data,
+                                     mimic_iv_paths[d.type]["path"], d.balanced, temporal=d.temporal,
+                                     categorical=mimic_iv_paths[d.type]["categorical"], model=m.type)
+    elif d.type == "moons":
         return generate_moons_dataset
-    elif args.data_type == "support2":
-        return generate_real_dataset(load_support2cls_data, args.sorted)
+    elif d.type == "support2":
+        return generate_real_dataset(load_support2cls_data)
 
 
 def perturb_labels_fp(y, rate=0.05):
@@ -190,7 +190,7 @@ def load_mimic_iii_data(*args, **kargs):
     return dataset
 
 
-def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=True, categorical=False, model=None):
+def generate_real_dataset(fn, path=None, balanced=False, temporal=True, categorical=False, model=None):
     data = fn(path, categorical, model)
 
     year_idx = None
@@ -210,11 +210,6 @@ def generate_real_dataset(fn, sorted=False, path=None, balanced=False, temporal=
 
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
-
-    if sorted:
-        sort_idx = np.argsort(x["year"])
-        x = x[sort_idx]
-        y = y[sort_idx]
 
     nan_idx = np.where(np.isnan(x))[0]
     x = np.delete(x, nan_idx, 0)
