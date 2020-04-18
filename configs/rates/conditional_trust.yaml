@@ -1,0 +1,11 @@
+rates:
+  idr: fpr # Initial desired rate
+  idv: null
+  tvp: 0.2 # Threshold validation percentage
+  ddr: fpr # Dynamic desired rate
+  ddp: all # Dynamic desired partition
+  clinician_fprs: [ 0.2 ]
+  clinician_fpr: null
+  clinician_trust: 1.0
+  model_fprs: [ 0.2 ]
+

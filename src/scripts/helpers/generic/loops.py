@@ -7,16 +7,18 @@ from src.utils.metrics import compute_all_rates
 from src.utils.misc import create_empty_rates
 from src.utils.preprocess import get_scaler
 from src.utils.rand import set_seed
-from src.utils.update import find_threshold
+from src.utils.threshold import find_threshold
+
+from typing import Dict, Callable, SupportsFloat
 
 
-def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.2, num_updates=100, num_features=20,
-                             initial_desired_rate="fpr", initial_desired_value=0.1, threshold_validation_percentage=0.0,
-                             clinician_fpr=0.0, dynamic_desired_rate=None, dynamic_desired_partition="train",
-                             data_fn=None, update_fn=None, bad_model=False, worst_case=False,
-                             seeds=1, clinician_trust=1.0, normalization=True, **kwargs):
+def train_update_loop_static(data_fn: Callable=None, model_fn: Callable=None, update_fn: Callable=None,
+                             n_train: SupportsFloat=0.1, n_update: SupportsFloat=0.7, n_test: SupportsFloat=0.2,
+                             num_features: int=20, num_updates: int=100, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
+                             ddr: str=None, ddp: str= "train", worst_case: bool=False, seeds: int=1,
+                             clinician_fpr: float=0.0, clinician_trust: float=1.0, normalize: bool=True,
+                             **kwargs) -> (Dict, Dict):
     seeds = np.arange(seeds)
-
     rates = create_empty_rates()
 
     stats = {"updated": {key: [] for key in rates.keys()},
@@ -28,25 +30,24 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
 
         x_train, y_train, x_update, y_update, x_test, y_test, cols = data_fn(n_train, n_update, n_test,
                                                                        num_features=num_features)
-        scaler = get_scaler(normalization, cols)
+        scaler = get_scaler(normalize, cols)
         scaler.fit(x_train)
         model = model_fn(num_features=x_train.shape[1])
 
-        if threshold_validation_percentage > 0:
+        if tvp > 0:
             x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = train_test_split(x_train, y_train, stratify=y_train,
-                                                                                          test_size=threshold_validation_percentage)
+                                                                                          test_size=tvp)
         else:
             x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = x_train, x_train, y_train, y_train
 
-        if not bad_model:
-            set_seed(seed)
-            model.fit(scaler.transform(x_train_fit), y_train_fit)
-            loss = model.evaluate(scaler.transform(x_test), y_test)
+        set_seed(seed)
+        model.fit(scaler.transform(x_train_fit), y_train_fit)
+        loss = model.evaluate(scaler.transform(x_test), y_test)
 
         y_prob = model.predict_proba(scaler.transform(x_threshold_fit))
 
-        if initial_desired_rate is not None:
-            threshold = find_threshold(y_threshold_fit, y_prob, initial_desired_rate, initial_desired_value)
+        if idr is not None:
+            threshold = find_threshold(y_threshold_fit, y_prob, idr, idv)
         else:
             threshold = 0.5
 
@@ -67,15 +68,11 @@ def train_update_loop_static(model_fn=None, n_train=0.1, n_update=0.7, n_test=0.
         initial_rates = compute_all_rates(y_test, y_pred, y_prob, initial=True)
         initial_rates["loss"] = loss
 
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
+        ddv = get_dyanmic_desired_value(ddr, initial_rates)
 
         new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                                             intermediate=True, threshold=threshold,
-                                             dynamic_desired_rate=dynamic_desired_rate,
-                                             dynamic_desired_value=dynamic_desired_value,
-                                             dynamic_desired_partition=dynamic_desired_partition,
-                                             clinician_fpr=clinician_fpr,
-                                             clinician_trust=clinician_trust,
+                                             intermediate=True, threshold=threshold, ddr=ddr, ddv=ddv, ddp=ddp,
+                                             clinician_fpr=clinician_fpr, clinician_trust=clinician_trust,
                                              scaler=scaler)
 
         for key in rates.keys():
@@ -137,12 +134,12 @@ def get_dyanmic_desired_value(desired_dynamic_rate, rates):
     return None
 
 
-def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year_limit=2019, initial_desired_rate="fpr",
-                               initial_desired_value=0.1, threshold_validation_percentage=0.0, clinician_fpr=0.0, dynamic_desired_rate=None,
-                               dynamic_desired_partition="train", data_fn=None, update_fn=None, bad_model=False,
-                               next_year=True, seeds=1, clinician_trust=1.0, normalization=True, **kwargs):
+def train_update_loop_temporal(data_fn: Callable=None, model_fn: Callable=None, update_fn: Callable=None,
+                               tyl: int=1999, uyl: int=2019, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
+                               ddr: str=None, ddp: str= "train", next_year: bool=True,
+                               seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
+                               normalize: bool=True, **kwargs):
     seeds = np.arange(seeds)
-
     rates = create_empty_rates()
 
     stats = {"updated": {key: [] for key in rates.keys()},
@@ -159,39 +156,37 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
 
         model = model_fn(num_features=x.shape[1] - 1)
 
-        train_idx = x[:, 0] <= train_year_limit
+        train_idx = x[:, 0] <= tyl
         x_train, y_train = x[train_idx], y[train_idx]
         x_rest, y_rest = x[~train_idx], y[~train_idx]
-        years_train = x_train[:, 0]
         years_rest = x_rest[:, 0]
         x_train, x_rest = x_train[:, 1:], x_rest[:, 1:]
 
-        scaler = get_scaler(normalization, cols)
+        scaler = get_scaler(normalize, cols)
 
         scaler.fit(x_train)
 
         if next_year:
-            eval_idx = years_rest == train_year_limit + 1
+            eval_idx = years_rest == tyl + 1
         else:
-            eval_idx = years_rest == update_year_limit
+            eval_idx = years_rest == uyl
 
         x_eval, y_eval = x_rest[eval_idx],  y_rest[eval_idx]
 
-        if threshold_validation_percentage > 0:
+        if tvp > 0:
             x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = train_test_split(x_train, y_train, stratify=y_train,
-                                                                                          test_size=threshold_validation_percentage)
+                                                                                          test_size=tvp)
         else:
             x_train_fit, x_threshold_fit, y_train_fit, y_threshold_fit = x_train, x_train, y_train, y_train
 
-        if not bad_model:
-            set_seed(seed)
-            model.fit(scaler.transform(x_train_fit), y_train_fit)
-            loss = model.evaluate(scaler.transform(x_eval), y_eval)
+        set_seed(seed)
+        model.fit(scaler.transform(x_train_fit), y_train_fit)
+        loss = model.evaluate(scaler.transform(x_eval), y_eval)
 
         y_prob = model.predict_proba(scaler.transform(x_threshold_fit))
 
-        if initial_desired_rate is not None:
-            threshold = find_threshold(y_threshold_fit, y_prob, initial_desired_rate, initial_desired_value)
+        if idr is not None:
+            threshold = find_threshold(y_threshold_fit, y_prob, idr, idv)
         else:
             threshold = 0.5
 
@@ -203,17 +198,12 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
         initial_rates = compute_all_rates(y_eval, y_pred, y_prob, initial=True)
         initial_rates["loss"] = loss
 
-        dynamic_desired_value = get_dyanmic_desired_value(dynamic_desired_rate, initial_rates)
+        ddv = get_dyanmic_desired_value(ddr, initial_rates)
 
-        new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years_rest, train_year_limit, update_year_limit,
-                                             next_year=next_year,
-                                             intermediate=True, threshold=threshold,
-                                             dynamic_desired_rate=dynamic_desired_rate,
-                                             dynamic_desired_value=dynamic_desired_value,
-                                             dynamic_desired_partition=dynamic_desired_partition,
-                                             clinician_fpr=clinician_fpr,
-                                             clinician_trust=clinician_trust,
-                                             scaler=scaler)
+        new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years_rest, tyl, uyl,
+                                             next_year=next_year, intermediate=True, threshold=threshold, ddr=ddr,
+                                             ddv=ddv, ddp=ddp, clinician_fpr=clinician_fpr,
+                                             clinician_trust=clinician_trust, scaler=scaler)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])
@@ -223,10 +213,19 @@ def train_update_loop_temporal(model_fn=None, train_year_limit=1999, update_year
     return rates, stats
 
 
-def get_update_loop(temporal):
-    if temporal:
-        return train_update_loop_temporal
+def call_update_loop(args, data_fn, model_fn, update_fn):
+    if args.data.temporal:
+        return train_update_loop_temporal(data_fn, model_fn, update_fn, tyl=args.data.tyl, uyl=args.data.uyl,
+                                          idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
+                                          ddp=args.rates.ddp, next_year=args.data.next_year, seeds=args.misc.seeds,
+                                          clinician_fpr=args.rates.clinician_fpr, clinician_trust=args.rates.clinician_trust,
+                                          normalize=args.data.normalize)
     else:
-        return train_update_loop_static
+        return train_update_loop_static(data_fn, model_fn, update_fn, n_train=args.data.n_train, n_update=args.data.n_update,
+                                        n_test=args.data.n_test, num_features=args.data.num_features, num_updates=args.data.num_updates,
+                                        idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
+                                        ddp=args.rates.ddp, worst_case=args.data.worst_case, seeds=args.misc.seeds,
+                                        clinician_fpr=args.rates.clinician_fpr, clinician_trust=args.rates.clinician_trust,
+                                        normalize=args.data.normalize)
 
 

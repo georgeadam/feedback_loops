@@ -6,7 +6,7 @@ from src.utils.data import TEMPORAL_DATA_TYPES
 from src.utils.update import map_update_type
 
 
-def plot_rates_temporal(data, rate_types, update_types, limit_plot_range, title, plot_path):
+def plot_rates_temporal(data, rate_types, update_types, title, plot_path):
     fig = plt.figure(figsize=(13, 9))
     ax = fig.add_subplot(111)
 
@@ -33,12 +33,6 @@ def plot_rates_temporal(data, rate_types, update_types, limit_plot_range, title,
                 temp = temp.replace("_", " ")
                 labels.append(temp.upper())
 
-    if limit_plot_range:
-        if len(rate_types) > 1:
-            ax.set_ylim([0, 1.0])
-        elif rate_types[0] == "auc":
-            ax.set_ylim([0.5, 1.0])
-
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)
 
@@ -61,7 +55,7 @@ def plot_rates_temporal(data, rate_types, update_types, limit_plot_range, title,
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
-def plot_rates_static(data, rate_types, update_types, limit_plot_range, title, plot_path):
+def plot_rates_static(data, rate_types, update_types, title, plot_path):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
@@ -89,11 +83,6 @@ def plot_rates_static(data, rate_types, update_types, limit_plot_range, title, p
                 labels.append(temp.upper())
 
     ax.set_xlim([0, np.max(data["num_updates"])])
-    if limit_plot_range:
-        if len(rate_types) > 1:
-            ax.set_ylim([0, 1.0])
-        elif rate_types[0] == "auc":
-            ax.set_ylim([0.5, 1.0])
 
     ax.tick_params(axis='both', which='major', labelsize=24)
     ax.tick_params(axis='both', which='minor', labelsize=24)

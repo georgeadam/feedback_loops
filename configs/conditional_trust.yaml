@@ -1,0 +1,10 @@
+defaults:
+  - data: temporal
+  - misc: conditional_trust
+  - model: default
+  - pytorch: default
+  - rates: conditional_trust
+hydra:
+  run:
+    dir: results/temp/trust_experiments/conditional/${now:%Y-%m-%d-%H-%M-%S}/
+  output_subdir: .

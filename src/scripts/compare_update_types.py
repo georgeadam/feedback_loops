@@ -15,7 +15,7 @@ from omegaconf import DictConfig
 from settings import ROOT_DIR
 
 os.chdir(ROOT_DIR)
-config_path = os.path.join(ROOT_DIR, "configs/update_types/config.yaml")
+config_path = os.path.join(ROOT_DIR, "configs/update_types.yaml")
 @hydra.main(config_path=config_path)
 def main(args: DictConfig):
     print(args.pretty())
