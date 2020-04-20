@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 
+from typing import Any, Callable, Dict
 
-def results_to_dataframe_conditional_temporal(rates, train_year_limit, update_year_limit):
+def results_to_dataframe_conditional_temporal(rates: Dict, train_year_limit: int, update_year_limit: int) -> pd.DataFrame:
     data = {"rate": [], "rate_type": [], "year": [], "model_fpr": [], "clinician_fpr": [], "update_type": []}
 
     for update_type in rates.keys():
@@ -21,7 +22,7 @@ def results_to_dataframe_conditional_temporal(rates, train_year_limit, update_ye
     return pd.DataFrame(data)
 
 
-def results_to_dataframe_conditional_static(rates, *args):
+def results_to_dataframe_conditional_static(rates: Dict, *args: Any) -> pd.DataFrame:
     data = {"rate": [], "rate_type": [], "num_updates": [], "model_fpr": [], "clinician_fpr": [], "update_type": []}
 
     for update_type in rates.keys():
@@ -39,7 +40,7 @@ def results_to_dataframe_conditional_static(rates, *args):
     return pd.DataFrame(data)
 
 
-def results_to_dataframe_constant_temporal(rates, train_year_limit, update_year_limit):
+def results_to_dataframe_constant_temporal(rates: Dict, train_year_limit: int, update_year_limit: int) -> pd.DataFrame:
     data = {"rate": [], "rate_type": [], "year": [], "trust": []}
 
     for trust in rates.keys():
@@ -54,7 +55,7 @@ def results_to_dataframe_constant_temporal(rates, train_year_limit, update_year_
     return pd.DataFrame(data)
 
 
-def results_to_dataframe_constant_static(rates, *args):
+def results_to_dataframe_constant_static(rates: Dict, *args: Any) -> pd.DataFrame:
     data = {"rate": [], "rate_type": [], "num_updates": [], "trust": []}
 
     for trust in rates.keys():
@@ -68,7 +69,7 @@ def results_to_dataframe_constant_static(rates, *args):
     return pd.DataFrame(data)
 
 
-def get_result_formatting_fn(temporal, trust_type):
+def get_result_formatting_fn(temporal: bool, trust_type: str) -> Callable[[Dict, Any], pd.DataFrame]:
     if temporal and trust_type == "conditional":
         return results_to_dataframe_conditional_temporal
     elif temporal and trust_type == "constant":

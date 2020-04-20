@@ -9,7 +9,8 @@ from src.utils.threshold import find_threshold
 from src.utils.trust import full_trust, conditional_trust, constant_trust
 
 from sklearn.model_selection import train_test_split
-
+from src.utils.typing import Model, Transformer
+from typing import Callable, Dict, List, Optional, SupportsFloat
 
 def wrapped(fn, **kwargs):
     def inside(*args, **specified_args):
@@ -18,7 +19,7 @@ def wrapped(fn, **kwargs):
     return inside
 
 
-def get_update_fn(update_type, temporal=False):
+def get_update_fn(update_type: str, temporal: bool=False):
     if temporal:
         update_fn = update_model_temporal
     else:
@@ -125,7 +126,7 @@ def get_update_fn(update_type, temporal=False):
                        fit_type="fit", feedback=False, update=False)
 
 
-def map_update_type(update_type):
+def map_update_type(update_type: str):
     if update_type.startswith("feedback_online_single_batch"):
         return "ssrd"
     elif update_type.startswith("no_feedback_full_fit_confidence"):
@@ -178,10 +179,12 @@ def map_update_type(update_type):
         return "static"
 
 
-def update_model_static(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
-                        agg_data=False, include_train=False, weight_type=None, fit_type="fit", feedback=False,
-                        update=True, intermediate=False, trust_fn=full_trust, clinician_fpr=0.0, clinician_trust=1.0,
-                        threshold=None, ddr=None, ddv=None, ddp=None, tvp=0.2, scaler=None, flip_type=None):
+def update_model_static(model: Model, x_train: np.ndarray, y_train: np.ndarray, x_update: np.ndarray, y_update: np.ndarray,
+                        x_test: np.ndarray, y_test: np.ndarray, num_updates: int,
+                        agg_data: bool=False, include_train: bool=False, weight_type: str=None, fit_type: str="fit", feedback: bool=False,
+                        update: bool=True, intermediate: bool=False, trust_fn: Callable=full_trust, clinician_fpr: float=0.0, clinician_trust: float=1.0,
+                        threshold: Optional[float]=None, ddr: Optional[str]=None, ddv: Optional[float]=None, ddp: Optional[str]=None,
+                        tvp: float=0.2, scaler: Transformer=None, flip_type: Optional[str]=None):
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
@@ -225,11 +228,13 @@ def update_model_static(model, x_train, y_train, x_update, y_update, x_test, y_t
     return new_model, rates
 
 
-def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, tyl=1999, uyl=2019, agg_data=False,
-                          include_train=False, weight_type=None, fit_type="fit", feedback=False, update=True,
-                          next_year=True, trust_fn=full_trust, clinician_fpr=0.0, clinician_trust=1.0,
-                          intermediate=False, threshold=None, ddr=None, ddv=None, ddp=None, tvp=0.2, scaler=None,
-                          flip_type=None):
+def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray, x_rest: np.ndarray, y_rest: np.ndarray,
+                          years: np.ndarray, tyl: int=1999, uyl: int=2019, agg_data: bool=False, include_train: bool=False,
+                          weight_type: str=None, fit_type: str="fit", feedback: bool=False, update: bool=True,
+                          next_year: bool=True, trust_fn: Callable=full_trust, clinician_fpr: float=0.0, clinician_trust: float=1.0,
+                          intermediate: bool=False, threshold: Optional[float]=None, ddr: Optional[str]=None,
+                          ddv: Optional[float]=None, ddp: Optional[str]=None, tvp: float=0.2, scaler: Transformer=None,
+                          flip_type: Optional[str]=None):
     new_model = copy.deepcopy(model)
 
     agg_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
@@ -285,7 +290,7 @@ def update_model_temporal(model, x_train, y_train, x_rest, y_rest, years, tyl=19
     return new_model, rates
 
 
-def compute_initial_fpr(model, threshold, x_train, y_train, scaler):
+def compute_initial_fpr(model: Model, threshold: float, x_train: np.ndarray, y_train: np.ndarray, scaler: Transformer):
     temp_prob = model.predict_proba(scaler.transform(x_train))[:, 1]
     temp_pred = temp_prob > threshold
     initial_fps = np.logical_and(temp_pred == 1, y_train == 0)
@@ -294,9 +299,11 @@ def compute_initial_fpr(model, threshold, x_train, y_train, scaler):
     return initial_fpr
 
 
-def make_update(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, train_weights,
-                agg_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
-                ddr, ddv, ddp, tvp, agg_data, scaler):
+def make_update(x_train: np.ndarray, y_train: np.ndarray, agg_x_update: np.ndarray, agg_y_update: np.ndarray,
+                sub_x: np.ndarray, sub_y: np.ndarray, train_weights: np.ndarray,
+                agg_update_weights: np.ndarray, sub_weights: np.ndarray, new_model: Model, threshold: float, fit_type: str,
+                update: bool, include_train: bool, ddr: str, ddv: float, ddp: str, tvp: float, agg_data: bool,
+                scaler: Transformer):
     if update:
         if ddr is not None:
             all_train_x, all_train_y, all_train_weights, \
@@ -332,8 +339,9 @@ def make_update(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, trai
     return threshold
 
 
-def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, clinician_fpr=0.0, clinician_trust=1.0,
-                   model_fpr=0.2, scaler=None):
+def replace_labels(feedback: bool, new_model: Model, sub_x: np.ndarray, sub_y: np.ndarray, threshold: float,
+                   trust_fn: Callable=None, clinician_fpr: float=0.0, clinician_trust: float=1.0,
+                   model_fpr: float=0.2, scaler: Transformer=None):
     if feedback:
         model_pred = new_model.predict_proba(scaler.transform(sub_x))
         if model_pred.shape[1] > 1:
@@ -362,7 +370,8 @@ def replace_labels(feedback, new_model, sub_x, sub_y, threshold, trust_fn=None, 
     return target
 
 
-def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scaler):
+def append_rates(intermediate: bool, new_model: Model, rates: Dict[str, List[float]], threshold: float,
+                 x_test: np.ndarray, y_test: np.ndarray, scaler: Transformer):
     if intermediate:
         if threshold is None:
             pred_prob = new_model.predict_proba(scaler.transform(x_test))
@@ -387,7 +396,7 @@ def append_rates(intermediate, new_model, rates, threshold, x_test, y_test, scal
         rates["fp_prop"].append(rates["fp_count"][-1] / rates["total_samples"][-1])
 
 
-def initialize_weights(weight_type, x_train, include_train):
+def initialize_weights(weight_type: str, x_train: np.ndarray, include_train: bool):
     if weight_type is None:
         weights = np.array(np.ones(len(x_train)))
     elif include_train:
@@ -398,7 +407,8 @@ def initialize_weights(weight_type, x_train, include_train):
     return weights
 
 
-def build_agg_data(agg_data, agg_x_update, agg_y_update, sub_x, sub_y):
+def build_agg_data(agg_data: bool, agg_x_update: np.ndarray, agg_y_update: np.ndarray, sub_x: np.ndarray,
+                   sub_y: np.ndarray):
     if agg_data:
         agg_x_update = np.concatenate((sub_x, agg_x_update))
         agg_y_update = np.concatenate((sub_y, agg_y_update))
@@ -406,15 +416,16 @@ def build_agg_data(agg_data, agg_x_update, agg_y_update, sub_x, sub_y):
     return agg_x_update, agg_y_update
 
 
-def build_agg_weights(agg_data, agg_weights, sub_weights):
+def build_agg_weights(agg_data: bool, agg_weights: np.ndarray, sub_weights: np.ndarray):
     if agg_data:
         agg_weights = np.concatenate([sub_weights, agg_weights])
 
     return agg_weights
 
 
-def split_validation_data(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, train_weights, agg_update_weights,
-                          sub_weights, ddp, tvp, include_train, agg_data):
+def split_validation_data(x_train: np.ndarray, y_train: np.ndarray, agg_x_update: np.ndarray, agg_y_update: np.ndarray,
+                          sub_x: np.ndarray, sub_y: np.ndarray, train_weights: np.ndarray, agg_update_weights: np.ndarray,
+                          sub_weights: np.ndarray, ddp: str, tvp: float, include_train: bool, agg_data: bool):
     if ddp == "train":
         if include_train:
             x_threshold_set, x_threshold_reset, \
@@ -528,8 +539,9 @@ def split_validation_data(x_train, y_train, agg_x_update, agg_y_update, sub_x, s
     return all_train_x, all_train_y, all_train_weights, all_valid_x, all_valid_y, all_valid_weights
 
 
-def combine_data(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, train_weights, agg_update_weights,
-                 sub_weights, include_train):
+def combine_data(x_train: np.ndarray, y_train: np.ndarray, agg_x_update: np.ndarray, agg_y_update: np.ndarray,
+                 sub_x: np.ndarray, sub_y: np.ndarray, train_weights: np.ndarray, agg_update_weights: np.ndarray,
+                 sub_weights: np.ndarray, include_train: bool):
     if include_train:
         all_x = np.concatenate([x_train, agg_x_update, sub_x])
         all_y = np.concatenate([y_train, agg_y_update, sub_y])
@@ -542,7 +554,8 @@ def combine_data(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, tra
     return all_x, all_y, all_weights
 
 
-def update_scaler(x_train, agg_x_update, sub_x, include_train, scaler):
+def update_scaler(x_train: np.ndarray, agg_x_update: np.ndarray, sub_x: np.ndarray, include_train: bool,
+                  scaler: Transformer):
     if include_train:
         all_x = np.concatenate([x_train, agg_x_update, sub_x])
     else:
@@ -552,7 +565,7 @@ def update_scaler(x_train, agg_x_update, sub_x, include_train, scaler):
     scaler.fit(all_x)
 
 
-def compute_model_fpr(model, x, y, threshold, scaler):
+def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, threshold: float, scaler: Transformer):
     y_prob = model.predict_proba(scaler.transform(x))
     y_pred = y_prob[:, 1] > threshold
 

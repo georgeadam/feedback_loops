@@ -8,16 +8,18 @@ from src.utils.misc import create_empty_rates
 from src.utils.preprocess import get_scaler
 from src.utils.rand import set_seed
 from src.utils.threshold import find_threshold
+from src.utils.typing import Model, IntOrFloat, ResultDict, ModelFn, DataFn
 
-from typing import Dict, Callable, SupportsFloat
+from omegaconf import DictConfig
+from typing import Any, Dict, Callable, List, Optional, SupportsFloat, Union
 
 
-def train_update_loop_static(data_fn: Callable=None, model_fn: Callable=None, update_fn: Callable=None,
+def train_update_loop_static(data_fn: DataFn=None, model_fn: ModelFn=None, update_fn: Callable=None,
                              n_train: SupportsFloat=0.1, n_update: SupportsFloat=0.7, n_test: SupportsFloat=0.2,
                              num_features: int=20, num_updates: int=100, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
                              ddr: str=None, ddp: str= "train", worst_case: bool=False, seeds: int=1,
                              clinician_fpr: float=0.0, clinician_trust: float=1.0, normalize: bool=True,
-                             **kwargs) -> (Dict, Dict):
+                             **kwargs) -> (ResultDict, ResultDict):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
 
@@ -127,18 +129,18 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desire
     return rates
 
 
-def get_dyanmic_desired_value(desired_dynamic_rate, rates):
+def get_dyanmic_desired_value(desired_dynamic_rate: str, rates: Dict[str, float]) -> Optional[float]:
     if desired_dynamic_rate is not None:
         return rates[desired_dynamic_rate]
 
     return None
 
 
-def train_update_loop_temporal(data_fn: Callable=None, model_fn: Callable=None, update_fn: Callable=None,
+def train_update_loop_temporal(data_fn: DataFn=None, model_fn: ModelFn=None, update_fn: Callable=None,
                                tyl: int=1999, uyl: int=2019, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
                                ddr: str=None, ddp: str= "train", next_year: bool=True,
                                seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
-                               normalize: bool=True, **kwargs):
+                               normalize: bool=True, **kwargs) -> (ResultDict, ResultDict):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
 
@@ -213,7 +215,8 @@ def train_update_loop_temporal(data_fn: Callable=None, model_fn: Callable=None, 
     return rates, stats
 
 
-def call_update_loop(args, data_fn, model_fn, update_fn):
+def call_update_loop(args: DictConfig, data_fn: Callable, model_fn: Callable, update_fn: Callable) -> (ResultDict,
+                                                                                                       ResultDict):
     if args.data.temporal:
         return train_update_loop_temporal(data_fn, model_fn, update_fn, tyl=args.data.tyl, uyl=args.data.uyl,
                                           idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
@@ -222,7 +225,7 @@ def call_update_loop(args, data_fn, model_fn, update_fn):
                                           normalize=args.data.normalize)
     else:
         return train_update_loop_static(data_fn, model_fn, update_fn, n_train=args.data.n_train, n_update=args.data.n_update,
-                                        n_test=args.data.n_test, num_features=args.data.num_features, num_updates=args.data.num_updates,
+                                        n_test=args.data.n_test, num_features=args.data.num_features, num_updates=args.data .num_updates,
                                         idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
                                         ddp=args.rates.ddp, worst_case=args.data.worst_case, seeds=args.misc.seeds,
                                         clinician_fpr=args.rates.clinician_fpr, clinician_trust=args.rates.clinician_trust,

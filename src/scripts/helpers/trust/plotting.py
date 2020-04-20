@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 
+from typing import List
 
-def plot_conditional_trust_static(data, rate_types, model_fpr, title, plot_path):
+def plot_conditional_trust_static(data: pd.DataFrame, rate_types: List[str], model_fpr: float, title: str, plot_path: str):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
@@ -41,7 +43,7 @@ def plot_conditional_trust_static(data, rate_types, model_fpr, title, plot_path)
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
-def plot_conditional_trust_temporal(data, rate_types, model_fpr, title, plot_path):
+def plot_conditional_trust_temporal(data: pd.DataFrame, rate_types: List[str], model_fpr: float, title: str, plot_path: str):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
@@ -82,7 +84,7 @@ def plot_conditional_trust_temporal(data, rate_types, model_fpr, title, plot_pat
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
-def plot_constant_trust_static(data, rate_type, title, plot_path):
+def plot_constant_trust_static(data: pd.DataFrame, rate_type: str, title: str, plot_path: str):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
@@ -120,7 +122,7 @@ def plot_constant_trust_static(data, rate_type, title, plot_path):
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
 
 
-def plot_constant_trust_temporal(data, rate_type, title, plot_path):
+def plot_constant_trust_temporal(data: pd.DataFrame, rate_type: str, title: str, plot_path: str):
     fig = plt.figure(figsize=(13, 13))
     ax = fig.add_subplot(111)
 
@@ -158,14 +160,3 @@ def plot_constant_trust_temporal(data, rate_type, title, plot_path):
     legend.texts[0].set_size(24)
 
     fig.savefig("{}.{}".format(plot_path, "pdf"), bbox_inches='tight')
-
-
-def get_plot_fn(temporal, trust_type):
-    if temporal and trust_type == "conditional":
-        return plot_conditional_trust_temporal
-    elif temporal and trust_type == "constant":
-        return plot_constant_trust_temporal
-    elif not temporal and trust_type == "conditional":
-        return plot_conditional_trust_static
-    else:
-        return plot_constant_trust_static

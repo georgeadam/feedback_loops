@@ -3,7 +3,8 @@ import numpy as np
 from src.utils.metrics import compute_all_rates
 
 
-def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):
+def find_threshold(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired_value: float,
+                   tol: float=0.01) -> float:
     thresholds = np.linspace(0.01, 0.999, 1000)
     best_threshold = None
     best_diff = float("inf")
@@ -39,7 +40,7 @@ def find_threshold(y, y_prob, desired_rate, desired_value, tol=0.01):
     return best_threshold
 
 
-def get_direction(rate):
+def get_direction(rate: str) -> str:
     if rate == "fpr" or rate == "tnr":
         return "increasing"
     elif rate == "fnr" or rate == "tpr":

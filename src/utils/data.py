@@ -6,8 +6,12 @@ from scipy.stats import multivariate_normal
 
 from sklearn.datasets import make_classification, make_gaussian_quantiles, make_moons
 from sklearn.model_selection import train_test_split
+from src.utils.typing import DataFn
 
+from omegaconf import DictConfig
 from settings import ROOT_DIR
+from typing import Any, Callable, Dict, List, Tuple
+
 
 
 STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2"]
@@ -20,7 +24,7 @@ mimic_iv_paths = {"mimic_iv": {"path": "mimic_iv_datasets_with_year_imputed.csv"
                   "mimic_iv_12h_demographic": {"path": "mimic_iv_datasets_with_year_12hrs_imputed_age_race_gender.csv", "categorical": True},
                   "mimic_iv_24h_demographic": {"path": "mimic_iv_datasets_with_year_24hrs_imputed_age_race_gender.csv", "categorical": True}}
 
-def get_data_fn(d, m):
+def get_data_fn(d: DictConfig, m: DictConfig) -> DataFn:
     if d.type == "gaussian":
         if hasattr(d, "m0"):
             return generate_gaussian_dataset(d.m0, d.m1, d.s0, d.s1, d.p0, d.p1)
@@ -40,7 +44,7 @@ def get_data_fn(d, m):
         return generate_real_dataset(load_support2cls_data)
 
 
-def perturb_labels_fp(y, rate=0.05):
+def perturb_labels_fp(y: np.ndarray, rate: float=0.05) -> np.ndarray:
     y_copy = copy.deepcopy(y)
     n_pert = int(len(y_copy) * rate)
 
@@ -54,7 +58,8 @@ def perturb_labels_fp(y, rate=0.05):
     return y_copy
 
 
-def make_gaussian_data(m0, m1, s0, s1, n, p0, p1, num_features=2, noise=0.0):
+def make_gaussian_data(m0: float, m1: float, s0: float, s1: float, n: int, p0: float, p1: float, num_features: int=2,
+                       noise: float=0.0) -> Tuple[np.ndarray, np.ndarray]:
     neg_samples = np.random.multivariate_normal(m0 * np.ones(num_features), s0 * np.eye(num_features), int(n * p0))
     pos_samples = np.random.multivariate_normal(m1 * np.ones(num_features), s1 * np.eye(num_features), int(n * p1))
 
@@ -75,7 +80,8 @@ def make_gaussian_data(m0, m1, s0, s1, n, p0, p1, num_features=2, noise=0.0):
     return x, y
 
 
-def make_trend_gaussian_data(m0, m1, s0, s1, n, num_features=2, noise=0.0, uniform_range=[-3, 3]):
+def make_trend_gaussian_data(m0: float, m1: float, s0: float, s1: float, n: int, num_features: int=2, noise: float=0.0,
+                             uniform_range: List[float]=[-3, 3]) -> Tuple[np.ndarray, np.ndarray]:
     x = np.random.uniform(uniform_range[0], uniform_range[1], (n, num_features))
 
     pdf0 = multivariate_normal(mean=np.ones(num_features) * m0, cov=np.eye(num_features) * s0).pdf(x)
@@ -96,8 +102,8 @@ def make_trend_gaussian_data(m0, m1, s0, s1, n, num_features=2, noise=0.0, unifo
     return x, y
 
 
-def generate_gaussian_dataset(m0=-1, m1=1, s0=1, s1=1, p0=0.5, p1=0.5):
-    def wrapped(n_train, n_update, n_test, num_features=2, noise=0.0):
+def generate_gaussian_dataset(m0: float=-1, m1: float=1, s0: float=1, s1: float=1, p0: float=0.5, p1: float=0.5) -> Callable:
+    def wrapped(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0):
         x_train, y_train = make_gaussian_data(m0, m1, s0, s1, n_train, p0, p1, num_features=num_features, noise=noise)
 
         x_update, y_update = make_gaussian_data(m0, m1, s0, s1, n_update, p0, p1, num_features=num_features)
@@ -108,7 +114,7 @@ def generate_gaussian_dataset(m0=-1, m1=1, s0=1, s1=1, p0=0.5, p1=0.5):
     return wrapped
 
 
-def generate_sklearn_make_classification_dataset(n_train, n_update, n_test, num_features=2, noise=0.0):
+def generate_sklearn_make_classification_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
     x, y = make_classification(n_train + n_update + n_test, n_informative=num_features, n_features=num_features,
                                n_classes=2, n_clusters_per_class=2, n_redundant=0, flip_y=0, class_sep=1.0)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test)
@@ -124,7 +130,7 @@ def generate_sklearn_make_classification_dataset(n_train, n_update, n_test, num_
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def generate_moons_dataset(n_train, n_update, n_test, num_features=2, noise=0.0):
+def generate_moons_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
     x_train, y_train = make_moons(n_train, noise=noise)
     x_update, y_update = make_moons(n_update, noise=noise)
     x_test, y_test = make_moons(n_test, noise=noise)
@@ -135,7 +141,7 @@ def generate_moons_dataset(n_train, n_update, n_test, num_features=2, noise=0.0)
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def generate_circles_dataset(n_train, n_update, n_test, num_features=2, noise=0.0):
+def generate_circles_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0):
     x, y = make_moons(n_train + n_update + n_test, noise=noise)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test)
     x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test)
@@ -143,7 +149,7 @@ def generate_circles_dataset(n_train, n_update, n_test, num_features=2, noise=0.
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def generate_gaussian_quantile_dataset(n_train, n_update, n_test, num_features=2, noise=0.0):
+def generate_gaussian_quantile_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
     X1, y1 = make_gaussian_quantiles(cov=2.,
                                      n_samples=int((n_train + n_update + n_test) / 2), n_features=2,
                                      n_classes=2)
@@ -159,7 +165,7 @@ def generate_gaussian_quantile_dataset(n_train, n_update, n_test, num_features=2
     return x_train, y_train, x_update, y_update, x_test, y_test
 
 
-def load_mimic_iii_data(*args, **kargs):
+def load_mimic_iii_data(*args: Any, **kargs: Any) -> Dict[str, Any]:
     df_adult = pd.read_csv(os.path.join(ROOT_DIR, 'adult_icu.gz'), compression='gzip')
 
     train_cols = [
@@ -190,7 +196,8 @@ def load_mimic_iii_data(*args, **kargs):
     return dataset
 
 
-def generate_real_dataset(fn, path=None, balanced=False, temporal=True, categorical=False, model=None):
+def generate_real_dataset(fn: Callable, path: str=None, balanced: bool=False, temporal: bool=True, categorical: bool=False,
+                          model: str=None) -> Callable:
     data = fn(path, categorical, model)
 
     year_idx = None
@@ -217,7 +224,7 @@ def generate_real_dataset(fn, path=None, balanced=False, temporal=True, categori
 
     print("a")
 
-    def wrapped(n_train, n_update, n_test, **kwargs):
+    def wrapped(n_train: float, n_update: float, n_test: float, **kwargs: Any) -> Tuple:
         x_copy = copy.deepcopy(x)
         y_copy = copy.deepcopy(y)
 
@@ -266,7 +273,7 @@ def generate_real_dataset(fn, path=None, balanced=False, temporal=True, categori
     return wrapped
 
 
-def load_support2cls_data():
+def load_support2cls_data() -> Dict[str, Any]:
     df = pd.read_csv(os.path.join(ROOT_DIR, 'support2.csv'))
     one_hot_encode_cols = ['sex', 'dzclass', 'race', 'ca', 'income']
     target_variables = ['hospdead']
@@ -293,7 +300,7 @@ def load_support2cls_data():
     return dataset
 
 
-def load_mimic_iv_data(path, categorical=False, model="lr"):
+def load_mimic_iv_data(path: str, categorical: bool=False, model: str="lr") -> Dict[str, Any]:
     df_adult = pd.read_csv(os.path.join(ROOT_DIR, path))
 
     train_cols = [

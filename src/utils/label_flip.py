@@ -3,7 +3,7 @@ import copy
 import numpy as np
 
 
-def flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold):
+def flip_labels(flip_type: str, sub_conf: np.ndarray, sub_y: np.ndarray, sub_y_unmodified: np.ndarray, threshold: float):
     if flip_type == "flip_low_confidence":
         sorted_idx = np.argsort(sub_conf)
         unsorted_idx = np.argsort(sorted_idx)

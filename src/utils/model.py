@@ -2,15 +2,18 @@ from sklearn.calibration import CalibratedClassifierCV
 from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost, lr_online, evaluate
 from src.models.pytorch import NN
 
+from omegaconf import DictConfig
+from typing import Any, Callable
+from src.utils.typing import Model
 
-def wrapped(fn, **kwargs):
-    def inside(num_features):
+def wrapped(fn: Callable[[Any], Model], **kwargs: Any) -> Callable:
+    def inside(num_features: int) -> Model:
         return fn(num_features=num_features, **kwargs)
 
     return inside
 
 
-def get_model_fn(model_args, pytorch_args):
+def get_model_fn(model_args: DictConfig, pytorch_args: DictConfig) -> Callable[[int], Model]:
     if model_args.type == "lr":
         return wrapped(lr, warm_start=model_args.warm_start, class_weight=model_args.class_weight)
     elif model_args.type == "lr_online":

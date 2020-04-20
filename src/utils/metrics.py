@@ -2,8 +2,10 @@ from numba import jit
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_score
 
+from typing import Dict, Tuple, SupportsFloat
+
 @jit
-def fast_auc(y_true, y_prob):
+def fast_auc(y_true: np.ndarray, y_prob: np.ndarray) -> float:
     if len(y_true) == np.sum(y_true):
         return 0.0
     y_true = np.asarray(y_true)
@@ -20,7 +22,7 @@ def fast_auc(y_true, y_prob):
     return auc
 
 
-def eval_model(y, y_pred):
+def eval_model(y: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float, float, float]:
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
 
     samples = float(len(y_pred))
@@ -28,36 +30,36 @@ def eval_model(y, y_pred):
     return tn / samples, fp / samples, fn / samples, tp / samples
 
 
-def confusion_matrix_custom(y, y_pred):
-    tn = np.sum(np.logical_and(y_pred == 0, y == 0))
-    tp = np.sum(np.logical_and(y_pred == 1, y == 1))
+def confusion_matrix_custom(y: np.ndarray, y_pred: np.ndarray) -> Tuple[int, int, int, int]:
+    tn = int(np.sum(np.logical_and(y_pred == 0, y == 0)))
+    tp = int(np.sum(np.logical_and(y_pred == 1, y == 1)))
 
-    fp = np.sum(np.logical_and(y_pred == 1, y == 0))
-    fn = np.sum(np.logical_and(y_pred == 0, y == 1))
+    fp = int(np.sum(np.logical_and(y_pred == 1, y == 0)))
+    fn = int(np.sum(np.logical_and(y_pred == 0, y == 1)))
 
     return tn, fp, fn, tp
 
 
-def precision_score(y, y_pred):
+def precision_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
 
     return tp / (tp + fp)
 
 
-def recall_score(y, y_pred):
+def recall_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
 
     return tp / (tp + fn)
 
 
-def f1_score(y, y_pred):
+def f1_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     recall = recall_score(y, y_pred)
     precision = precision_score(y, y_pred)
 
     return (2 * precision * recall) / (precision + recall)
 
 
-def compute_all_rates(y, y_pred, y_prob, initial=False):
+def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, initial: bool=False) -> Dict[str, float]:
     samples = float(len(y))
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
     tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), fn / (tp + fn), tp / (tp + fn)
@@ -103,7 +105,7 @@ def compute_all_rates(y, y_pred, y_prob, initial=False):
     return rates
 
 
-def compute_fp_portion(y, y_pred):
+def compute_fp_portion(y: np.ndarray, y_pred: np.ndarray) -> float:
     fp_idx = np.logical_and(y == 0, y_pred == 1)
 
     return np.sum(fp_idx) / len(y)

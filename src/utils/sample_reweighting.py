@@ -3,7 +3,8 @@ import copy
 import numpy as np
 
 
-def get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold):
+def get_weights(weight_type: str, sub_conf: np.ndarray, sub_y: np.ndarray, sub_y_unmodified: np.ndarray,
+                threshold: float) -> np.ndarray:
     if weight_type == "confidence":
         sub_idx = sub_y == 0
         sub_weights = copy.deepcopy(sub_conf)
