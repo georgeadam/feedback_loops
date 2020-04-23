@@ -1,0 +1,19 @@
+model:
+  type: nn
+  warm_start: False
+  class_weight: null
+  use_cv: False
+  lr: 0.0001
+  online_lr: 0.0001
+  optimizer: adam
+  reset_optim: False
+  iterations: 3000
+  importance: 100000.0
+  tol: 0.0001
+  hidden_layers: 0
+  activation: Tanh
+  soft: False
+  cv:
+    penalty: [ l1, l2, elasticnet, none ]
+    C: [ 0.01, 0.1, 1.0, 10.0 ]
+

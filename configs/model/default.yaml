@@ -1,4 +1,0 @@
-model:
-  type: xgboost
-  warm_start: False
-  class_weight: null

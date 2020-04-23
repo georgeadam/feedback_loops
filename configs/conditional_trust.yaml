@@ -2,7 +2,6 @@ defaults:
   - data: temporal
   - misc: conditional_trust
   - model: default
-  - pytorch: default
   - rates: conditional_trust
 hydra:
   run:

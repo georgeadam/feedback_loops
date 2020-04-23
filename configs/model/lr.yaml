@@ -1,0 +1,9 @@
+model:
+  type: lr
+  warm_start: False
+  class_weight: null
+  use_cv: False
+  cv:
+    penalty: [ l1, l2, elasticnet, none ]
+    C: [ 0.01, 0.1, 1.0, 10.0 ]
+
