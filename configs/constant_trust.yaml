@@ -1,7 +1,7 @@
 defaults:
   - data: temporal
   - misc: constant_trust
-  - model: default
+  - model: xgboost
   - rates: constant_trust
 hydra:
   run:

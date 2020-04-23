@@ -1,7 +1,7 @@
 defaults:
   - data: temporal
   - misc: default
-  - model: default
+  - model: xgboost
   - rates: default
 hydra:
   run:

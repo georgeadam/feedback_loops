@@ -19,7 +19,7 @@ def main(args):
     print(args.pretty())
 
     data_fn = get_data_fn(args.data, args.model)
-    model_fn = get_model_fn(args.model, args.pytorch)
+    model_fn = get_model_fn(args.model)
     result_formatting_fn = get_result_formatting_fn(args.data.temporal, "constant")
 
     rates = {}

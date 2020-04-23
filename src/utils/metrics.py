@@ -56,7 +56,12 @@ def f1_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     recall = recall_score(y, y_pred)
     precision = precision_score(y, y_pred)
 
-    return (2 * precision * recall) / (precision + recall)
+    try:
+        f1 = (2 * precision * recall) / (precision + recall)
+    except:
+        f1 =  0
+
+    return f1
 
 
 def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, initial: bool=False) -> Dict[str, float]:
