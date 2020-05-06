@@ -43,7 +43,10 @@ def confusion_matrix_custom(y: np.ndarray, y_pred: np.ndarray) -> Tuple[int, int
 def precision_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
 
-    return tp / (tp + fp)
+    if tp + fp == 0:
+        return 0
+    else:
+        return tp / (tp + fp)
 
 
 def recall_score(y: np.ndarray, y_pred: np.ndarray) -> float:
