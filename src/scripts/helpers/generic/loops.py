@@ -129,9 +129,11 @@ def gold_standard_loop(model_fn, n_train, n_update, n_test, num_features, desire
     return rates
 
 
-def get_dyanmic_desired_value(desired_dynamic_rate: str, rates: Dict[str, float]) -> Optional[float]:
-    if desired_dynamic_rate is not None:
-        return rates[desired_dynamic_rate]
+def get_dyanmic_desired_value(ddr: str, rates: Dict[str, float]) -> Optional[float]:
+    if ddr is not None and ddr == "f1":
+        return 1.0
+    elif ddr is not None:
+        return rates[ddr]
 
     return None
 

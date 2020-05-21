@@ -17,6 +17,7 @@ config_path = os.path.join(ROOT_DIR, "configs/constant_trust.yaml")
 @hydra.main(config_path=config_path)
 def main(args):
     print(args.pretty())
+    print("Saving to: {}".format(os.getcwd()))
 
     data_fn = get_data_fn(args.data, args.model)
     model_fn = get_model_fn(args.model)

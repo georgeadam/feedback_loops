@@ -13,7 +13,7 @@ from src.utils.save import CSV_FILE
 from settings import ROOT_DIR
 
 os.chdir(ROOT_DIR)
-config_path = os.path.join(ROOT_DIR, "configs/conditional_trust.yaml")
+config_path = os.path.join(ROOT_DIR, "configs/confidence_trust.yaml")
 @hydra.main(config_path=config_path)
 def main(args):
     print(args.pretty())
@@ -21,23 +21,23 @@ def main(args):
 
     data_fn = get_data_fn(args.data, args.model)
     model_fn = get_model_fn(args.model)
-    result_formatting_fn = get_result_formatting_fn(args.data.temporal, "conditional")
+    result_formatting_fn = get_result_formatting_fn(args.data.temporal, "confidence")
 
-    rates = {update_type: {model_fpr: {} for model_fpr in args.rates.model_fprs} for update_type in args.misc.update_types}
+    rates = {update_type: {model_rate: {} for model_rate in args.rates.model_rates} for update_type in args.misc.update_types}
 
     for update_type in args.misc.update_types:
-        for model_fpr in args.rates.model_fprs:
+        for model_rate in args.rates.model_rates:
             if update_type == "feedback_full_fit":
                 clinician_fprs = [0.0]
             else:
                 clinician_fprs = args.rates.clinician_fprs
 
-            args.rates.idv = model_fpr
+            args.rates.idv = model_rate
             for clinician_fpr in clinician_fprs:
                 args.rates.clinician_fpr = clinician_fpr
                 update_fn = get_update_fn(update_type, temporal=args.data.temporal)
                 temp_rates, temp_stats = call_update_loop(args, data_fn, model_fn, update_fn)
-                rates[update_type][model_fpr][clinician_fpr] = temp_rates
+                rates[update_type][model_rate][clinician_fpr] = temp_rates
 
     data = result_formatting_fn(rates, args.data.tyl, args.data.uyl)
 

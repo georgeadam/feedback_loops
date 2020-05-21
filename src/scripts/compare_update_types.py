@@ -19,6 +19,7 @@ config_path = os.path.join(ROOT_DIR, "configs/update_types.yaml")
 @hydra.main(config_path=config_path)
 def main(args: DictConfig):
     print(args.pretty())
+    print("Saving to: {}".format(os.getcwd()))
 
     data_fn = get_data_fn(args.data, args.model)
     model_fn = get_model_fn(args.model)

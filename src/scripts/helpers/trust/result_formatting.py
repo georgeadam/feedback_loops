@@ -70,11 +70,11 @@ def results_to_dataframe_constant_static(rates: Dict, *args: Any) -> pd.DataFram
 
 
 def get_result_formatting_fn(temporal: bool, trust_type: str) -> Callable[[Dict, Any], pd.DataFrame]:
-    if temporal and trust_type == "conditional":
+    if temporal and (trust_type == "conditional" or trust_type == "confidence"):
         return results_to_dataframe_conditional_temporal
     elif temporal and trust_type == "constant":
         return results_to_dataframe_constant_temporal
-    elif not temporal and trust_type == "conditional":
+    elif not temporal and (trust_type == "conditional" or trust_type == "confidence"):
         return results_to_dataframe_conditional_static
     else:
         return results_to_dataframe_constant_static
