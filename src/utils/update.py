@@ -6,7 +6,7 @@ from src.utils.misc import create_empty_rates
 from src.utils.metrics import compute_all_rates
 from src.utils.sample_reweighting import get_weights
 from src.utils.threshold import find_threshold
-from src.utils.trust import full_trust, conditional_trust, constant_trust
+from src.utils.trust import full_trust, conditional_trust, constant_trust, confidence_trust, confidence_threshold_trust
 
 from sklearn.model_selection import train_test_split
 from src.utils.typing import Model, Transformer
@@ -88,6 +88,9 @@ def get_update_fn(update_type: str, temporal: bool=False):
     elif update_type == "feedback_full_fit_drop_everything":
         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_everything",
                        fit_type="fit", feedback=True)
+    elif update_type == "feedback_full_fit_drop_all_pos":
+        return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_all_pos",
+                       fit_type="fit", feedback=True)
     elif update_type == "feedback_full_fit_flip_everything":
         return wrapped(update_fn, agg_data=True, include_train=True,
                        fit_type="fit", feedback=True, flip_type="flip_everything")
@@ -106,6 +109,12 @@ def get_update_fn(update_type: str, temporal: bool=False):
     elif update_type == "feedback_full_fit_conditional_trust":
         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
                 fit_type="fit", feedback=True, trust_fn=conditional_trust)
+    elif update_type == "feedback_full_fit_confidence_trust":
+        return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
+                fit_type="fit", feedback=True, trust_fn=confidence_trust)
+    elif update_type == "feedback_full_fit_confidence_threshold_trust":
+        return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
+                fit_type="fit", feedback=True, trust_fn=confidence_threshold_trust)
     elif update_type == "feedback_full_fit_constant_trust":
         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
                 fit_type="fit", feedback=True, trust_fn=constant_trust)
@@ -146,7 +155,9 @@ def map_update_type(update_type: str):
     elif update_type.startswith("feedback_full_fit_past_year_cad"):
         return "refit_past_year"
     elif update_type.startswith("feedback_full_fit_drop_everything"):
-        return "feedback_drop_all_pos"
+        return "feedback_drop_all_pos_pred"
+    elif update_type.startswith("feedback_full_fit_drop_all_pos"):
+        return "feedback_drop_all_pos_label"
     elif update_type.startswith("no_feedback_full_fit_drop_low_confidence"):
         return "no_feedback_drop_low_confidence"
     elif update_type.startswith("no_feedback_full_fit_oracle"):
@@ -167,6 +178,10 @@ def map_update_type(update_type: str):
         return "ssad-t"
     elif update_type.startswith("feedback_full_fit_conditional_trust"):
         return "feedback_conditional_trust"
+    elif update_type.startswith("feedback_full_fit_confidence_trust"):
+        return "feedback_confidence_trust"
+    elif update_type.startswith("feedback_full_fit_confidence_threshold_trust"):
+        return "feedback_confidence_threshold_trust"
     elif update_type.startswith("feedback_full_fit_constant_trust"):
         return "feedback_constant_trust"
     elif update_type.startswith("feedback_full_fit_oracle"):
@@ -343,27 +358,33 @@ def replace_labels(feedback: bool, new_model: Model, sub_x: np.ndarray, sub_y: n
                    trust_fn: Callable=None, clinician_fpr: float=0.0, clinician_trust: float=1.0,
                    model_fpr: float=0.2, scaler: Transformer=None):
     if feedback:
-        model_pred = new_model.predict_proba(scaler.transform(sub_x))
-        if model_pred.shape[1] > 1:
-            model_pred = model_pred[:, 1] > threshold
+        model_prob = new_model.predict_proba(scaler.transform(sub_x))
+        if model_prob.shape[1] > 1:
+            model_pred = model_prob[:, 1] > threshold
         else:
-            model_pred = model_pred[:, 0] > threshold
+            model_pred = model_prob[:, 0] > threshold
 
+        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
         model_fp_idx = np.where(np.logical_and(sub_y == 0, model_pred == 1))[0]
         model_pred = copy.deepcopy(sub_y)
         model_pred[model_fp_idx] = 1
     else:
+        model_prob = new_model.predict_proba(scaler.transform(sub_x))
         model_pred = copy.deepcopy(sub_y)
+        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
 
 
-    trust = trust_fn(model_fpr=model_fpr, clinician_trust=clinician_trust)
+    trust = trust_fn(model_fpr=model_fpr, model_prob=model_prob, clinician_trust=clinician_trust)
 
     clinician_pred = copy.deepcopy(sub_y)
     neg_idx = np.where(clinician_pred == 0)[0]
     physician_fp_idx = np.random.choice(neg_idx, min(int(clinician_fpr * len(sub_y)), len(neg_idx)))
     clinician_pred[physician_fp_idx] = 1
 
-    bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
+    if type(trust) != float:
+        bernoulli = np.random.binomial([1] * len(sub_y), trust)
+    else:
+        bernoulli = np.random.choice([0, 1], len(sub_y), p=[1 - trust, trust])
 
     target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
 
