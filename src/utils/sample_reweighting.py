@@ -47,6 +47,12 @@ def get_weights(weight_type: str, sub_conf: np.ndarray, sub_y: np.ndarray, sub_y
         sub_weights[drop_idx] = 0
 
         weights = sub_weights
+    elif weight_type == "drop_all_pos":
+        drop_idx = np.where(sub_y == 0)[0]
+        sub_weights = np.ones(len(sub_y))
+        sub_weights[drop_idx] = 0
+
+        weights = sub_weights
     else:
         weights = np.array(np.ones(len(sub_y)))
 
