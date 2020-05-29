@@ -228,7 +228,7 @@ def update_model_static(model: Model, x_train: np.ndarray, y_train: np.ndarray, 
                                model_fpr, scaler)
         sub_y = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
-        update_scaler(x_train, agg_x_update, sub_x, include_train, scaler)
+        update_scaler(x_train, agg_x_update, sub_x, include_train, scaler, update)
         threshold = make_update(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, train_weights,
                                 agg_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
                                 ddr, ddv, ddp, tvp, agg_data, scaler)
@@ -288,7 +288,7 @@ def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray
                                clinician_trust, model_fpr, scaler)
         sub_y = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         sub_weights = get_weights(weight_type, sub_conf, sub_y, sub_y_unmodified, threshold)
-        update_scaler(x_train, agg_x_update, sub_x, include_train, scaler)
+        update_scaler(x_train, agg_x_update, sub_x, include_train, scaler, update)
         threshold = make_update(x_train, y_train, agg_x_update, agg_y_update, sub_x, sub_y, train_weights,
                                 agg_update_weights, sub_weights, new_model, threshold, fit_type, update, include_train,
                                 ddr, ddv, ddp, tvp, agg_data, scaler)
@@ -576,14 +576,15 @@ def combine_data(x_train: np.ndarray, y_train: np.ndarray, agg_x_update: np.ndar
 
 
 def update_scaler(x_train: np.ndarray, agg_x_update: np.ndarray, sub_x: np.ndarray, include_train: bool,
-                  scaler: Transformer):
-    if include_train:
-        all_x = np.concatenate([x_train, agg_x_update, sub_x])
-    else:
-        all_x = np.concatenate([agg_x_update, sub_x])
+                  scaler: Transformer, update: bool):
+    if update:
+        if include_train:
+            all_x = np.concatenate([x_train, agg_x_update, sub_x])
+        else:
+            all_x = np.concatenate([agg_x_update, sub_x])
 
 
-    scaler.fit(all_x)
+        scaler.fit(all_x)
 
 
 def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, threshold: float, scaler: Transformer):
