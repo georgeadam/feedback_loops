@@ -7,6 +7,7 @@ data:
   n_train: 0.1
   n_update: 0.7
   n_test: 0.2
+  noise: 0.0
   next_year: True
   worst_case: False
   # Synthetic data only

@@ -104,11 +104,11 @@ def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, ini
     if initial:
         rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
                  "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-                 "total_samples": total_samples, "fp_prop": 0.0, "acc": acc}
+                 "total_samples": total_samples, "fp_prop": 0.0, "acc": acc, "detection": None}
     else:
         rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
                  "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-                 "total_samples": total_samples, "acc": acc}
+                 "total_samples": total_samples, "acc": acc, "detection": None}
 
     return rates
 

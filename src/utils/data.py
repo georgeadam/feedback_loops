@@ -31,7 +31,7 @@ def get_data_fn(d: DictConfig, m: DictConfig) -> DataFn:
         else:
             return generate_gaussian_dataset()
     elif d.type == "sklearn":
-        return generate_sklearn_make_classification_dataset
+        return generate_sklearn_make_classification_dataset(d.noise)
     elif d.type == "mimic_iii":
         return generate_real_dataset(load_mimic_iii_data, balanced=d.balanced)
     elif "mimic_iv" in d.type:
@@ -114,21 +114,25 @@ def generate_gaussian_dataset(m0: float=-1, m1: float=1, s0: float=1, s1: float=
     return wrapped
 
 
-def generate_sklearn_make_classification_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
-    x, y = make_classification(n_train + n_update + n_test, n_informative=num_features, n_features=num_features,
-                               n_classes=2, n_clusters_per_class=2, n_redundant=0, flip_y=0, class_sep=1.0)
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test)
-    x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test)
+def generate_sklearn_make_classification_dataset(noise: float=0.0) -> Callable:
+    def wrapped(n_train: int, n_update: int, n_test: int, num_features: int=2):
+        x, y = make_classification(n_train + n_update + n_test, n_informative=num_features, n_features=num_features,
+                                   n_classes=2, n_clusters_per_class=2, n_redundant=0, flip_y=0, class_sep=1.0)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test)
+        x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test)
 
-    if noise > 0.0:
-        neg_idx = y_train == 0
-        bernoulli = np.random.choice([False, True], len(y_train), p=[1 - noise, noise])
-        neg_idx = np.logical_and(neg_idx, bernoulli)
-        neg_idx = np.where(neg_idx)
-        y_train[neg_idx] = 1
+        cols = np.arange(num_features)
 
-    return x_train, y_train, x_update, y_update, x_test, y_test
+        if noise > 0.0:
+            neg_idx = y_train == 0
+            bernoulli = np.random.choice([False, True], len(y_train), p=[1 - noise, noise])
+            neg_idx = np.logical_and(neg_idx, bernoulli)
+            neg_idx = np.where(neg_idx)
+            y_train[neg_idx] = 1
 
+        return x_train, y_train, x_update, y_update, x_test, y_test, cols
+
+    return wrapped
 
 def generate_moons_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
     x_train, y_train = make_moons(n_train, noise=noise)
@@ -257,9 +261,12 @@ def generate_real_dataset(fn: Callable, path: str=None, balanced: bool=False, te
 
                 x_copy, y_copy = np.delete(x_copy, del_idx, 0), np.delete(y_copy, del_idx, 0)
 
-        n_train = int(len(y_copy) * n_train)
-        n_update = int(len(y_copy) * n_update)
-        n_test = int(len(y_copy) * n_test)
+        if n_test is None:
+            n_test = len(y_copy) - (n_train + n_update)
+        elif n_train < 1 or n_update < 1 or n_test < 1:
+            n_train = int(len(y_copy) * n_train)
+            n_update = int(len(y_copy) * n_update)
+            n_test = int(len(y_copy) * n_test)
 
         if year_idx is not None and not temporal:
             x_copy = np.delete(x_copy, year_idx, 1)

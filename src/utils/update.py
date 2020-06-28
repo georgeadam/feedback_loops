@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 
+from src.utils.detection import check_feedback_loop
 from src.utils.label_flip import flip_labels
 from src.utils.misc import create_empty_rates
 from src.utils.metrics import compute_all_rates
@@ -239,6 +240,7 @@ def update_model_static(model: Model, x_train: np.ndarray, y_train: np.ndarray, 
         agg_x_update, agg_y_update = build_agg_data(agg_data, agg_x_update,
                                                     agg_y_update, sub_x, sub_y)
         agg_update_weights = build_agg_weights(agg_data, agg_update_weights, sub_weights)
+        check_feedback_loop(y_train, agg_y_update, rates)
 
     return new_model, rates
 
@@ -300,6 +302,7 @@ def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray
         agg_x_update, agg_y_update = build_agg_data(agg_data, agg_x_update,
                                                     agg_y_update, sub_x, sub_y)
         agg_update_weights = build_agg_weights(agg_data, agg_update_weights, sub_weights)
+        check_feedback_loop(y_train, agg_y_update, rates)
 
 
     return new_model, rates
