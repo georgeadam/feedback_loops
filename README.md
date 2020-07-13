@@ -12,6 +12,7 @@ conda install -c conda-forge hydra-core
 conda install -c anaconda seaborn
 conda install pytorch torchvision -c pytorch
 conda install -c anaconda scipy
+conda install numba
 ```
 
 ## Structure
