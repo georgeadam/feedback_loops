@@ -1,18 +1,18 @@
-data:
-  type: mimic_iv
-  balanced: False
-  temporal: False
-  normalize: True
-  # Data splits
-  n_train: 0.1
-  n_update: 0.7
-  n_test: 0.2
-  noise: 0.0
-  next_year: True
-  worst_case: False
-  # Synthetic data only
-  num_features: 2
-  num_updates: 50
-  # placeholders
-  tyl: null
-  uyl: null
+# @package _group_
+type: mimic_iv
+balanced: False
+temporal: False
+normalize: True
+# Data splits
+n_train: 0.1
+n_update: 0.7
+n_test: 0.2
+noise: 0.0
+next_year: True
+worst_case: False
+# Synthetic data only
+num_features: 2
+num_updates: 50
+# placeholders
+tyl: null
+uyl: null

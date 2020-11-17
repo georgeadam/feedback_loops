@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - data: temporal
+  - misc: confidence_trust
+  - model: xgboost
+  - rates: confidence_trust
+hydra:
+  run:
+    dir: results/temp/trust_experiments/confidence/${now:%Y-%m-%d-%H-%M-%S}/
+  output_subdir: .

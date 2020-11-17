@@ -1,5 +1,5 @@
 # @package _group_
-type: nn
+type: nn_ewc
 warm_start: False
 class_weight: null
 use_cv: False

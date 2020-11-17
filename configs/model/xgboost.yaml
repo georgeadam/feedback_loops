@@ -1,11 +1,11 @@
-model:
-  type: xgboost
-  warm_start: False
-  class_weight: null
-  use_cv: False
-  cv:
-    n_estimators: [ 75, 100, 125, 150 ]
-    learning_rate: [ 0.01, 0.05, 0.1, 0.2 ]
-    reg_alpha: [ 0.01, 0.1, 1.0, 10.0 ]
-    reg_lambda: [ 0.01, 0.1, 1.0, 10.0 ]
+# @package _group_
+type: xgboost
+warm_start: False
+class_weight: null
+use_cv: False
+cv:
+  n_estimators: [ 75, 100, 125, 150 ]
+  learning_rate: [ 0.01, 0.05, 0.1, 0.2 ]
+  reg_alpha: [ 0.01, 0.1, 1.0, 10.0 ]
+  reg_lambda: [ 0.01, 0.1, 1.0, 10.0 ]
 

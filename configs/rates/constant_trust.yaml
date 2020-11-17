@@ -1,10 +1,10 @@
-rates:
-  idr: fpr # Initial desired rate
-  idv: 0.2 # Initial desired value
-  tvp: 0.2 # Threshold validation percentage
-  ddr: fpr # Dynamic desired rate
-  ddp: all # Dynamic desired partition
-  clinician_fpr: 0.2
-  clinician_trusts: [ 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]
-  clinician_trust: null # Used as a placeholder that gets overwritten
+# @package _group_
+idr: fpr # Initial desired rate
+idv: 0.2 # Initial desired value
+tvp: 0.2 # Threshold validation percentage
+ddr: fpr # Dynamic desired rate
+ddp: all # Dynamic desired partition
+clinician_fpr: 0.2
+clinician_trusts: [ 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]
+clinician_trust: null # Used as a placeholder that gets overwritten
 
