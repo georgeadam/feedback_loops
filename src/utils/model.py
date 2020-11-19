@@ -1,7 +1,7 @@
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import GridSearchCV
 from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost, lr_online, evaluate
-from src.models.pytorch import NN
+from src.models.pytorch import NN, NNEWC
 
 from omegaconf import DictConfig, OmegaConf
 from typing import Any, Callable
@@ -49,3 +49,7 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(adaboost, args.use_cv, args.cv)
     elif args.type == "xgboost":
         return wrapped(xgboost, args.use_cv, args.cv, warm_start=args.warm_start)
+    elif args.type == "nn_ewc":
+        return wrapped(NNEWC, args.use_cv, args.cv, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations,
+                       optimizer_name=args.optimizer, reset_optim=args.reset_optim, tol=args.tol,
+                       hidden_layers=args.hidden_layers, activation=args.activation, importance=args.importance)
