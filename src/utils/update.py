@@ -304,7 +304,6 @@ def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray
         agg_update_weights = build_agg_weights(agg_data, agg_update_weights, sub_weights)
         check_feedback_loop(y_train, agg_y_update, rates)
 
-
     return new_model, rates
 
 
@@ -345,14 +344,15 @@ def make_update(x_train: np.ndarray, y_train: np.ndarray, agg_x_update: np.ndarr
             if threshold is None:
                 threshold = prev_threshold
 
-        all_x, all_y, all_weights = combine_data(x_train, y_train, agg_x_update,
-                                                 agg_y_update, sub_x, sub_y, train_weights,
-                                                 agg_update_weights, sub_weights, include_train)
-        if fit_type == "partial_fit":
-            getattr(new_model, fit_type)(scaler.transform(all_x), all_y, classes=np.array([0, 1]),
-                                         sample_weight=all_weights)
         else:
-            getattr(new_model, fit_type)(scaler.transform(all_x), all_y, sample_weight=all_weights)
+            all_x, all_y, all_weights = combine_data(x_train, y_train, agg_x_update,
+                                                     agg_y_update, sub_x, sub_y, train_weights,
+                                                     agg_update_weights, sub_weights, include_train)
+            if fit_type == "partial_fit":
+                getattr(new_model, fit_type)(scaler.transform(all_x), all_y, classes=np.array([0, 1]),
+                                             sample_weight=all_weights)
+            else:
+                getattr(new_model, fit_type)(scaler.transform(all_x), all_y, sample_weight=all_weights)
 
     return threshold
 
