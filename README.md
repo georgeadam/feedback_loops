@@ -1,6 +1,20 @@
 # ML Feedback Loops
 This repository contains the necessary code to run experiments investigating feedback loops that may occur when models are given the ability to influence future data via their predictions.
 
+## Libraries
+
+```
+conda install -c conda-forge xgboost
+conda install -c anaconda pandas
+conda install -c conda-forge matplotlib
+conda install -c anaconda scikit-learn
+conda install -c conda-forge hydra-core
+conda install -c anaconda seaborn
+conda install pytorch torchvision -c pytorch
+conda install -c anaconda scipy
+conda install numba
+```
+
 ## Structure
 
     .
