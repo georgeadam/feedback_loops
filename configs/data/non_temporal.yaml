@@ -13,6 +13,9 @@ worst_case: False
 # Synthetic data only
 num_features: 2
 num_updates: 50
+# Moons data only
+start: 0.0
+end: 3.14
 # placeholders
 tyl: null
 uyl: null
