@@ -16,17 +16,22 @@ class StandardModel(nn.Module):
         self.tol = tol
         self.device = "cuda:0"
 
-    def fit(self, x, y, sample_weight=None):
+    def fit(self, x, y, sample_weight=None, log=True):
         if self.reset_optim:
             opt = get_optimizer(self.optimizer_name)
             self.optimizer = opt(self.parameters(), lr=self.lr)
 
-        x = torch.from_numpy(x).float()
+        if type(x) == np.ndarray:
+            x = torch.from_numpy(x).float()
 
         if self.soft:
-            y = torch.from_numpy(y).float()
+            if type(y) == np.ndarray:
+                y = torch.from_numpy(y)
+            y = y.float()
         else:
-            y = torch.from_numpy(y).long()
+            if type(y) == np.ndarray:
+                y = torch.from_numpy(y)
+            y = y.long()
 
         if self.soft:
             y_copy = copy.deepcopy(y)
@@ -61,7 +66,8 @@ class StandardModel(nn.Module):
                 no_improvement = 0
                 increased_loss = 0
             elif loss > best_loss:
-                print("Loss increased!")
+                if log:
+                    print("Loss increased!")
                 increased_loss += 1
                 no_improvement += 1
             else:
@@ -73,6 +79,7 @@ class StandardModel(nn.Module):
                 break
             elif no_improvement >= 50:
                 print("No improvement in loss for 50 iterations at iteration: {}. Stopping Early".format(i))
+                print("Final loss is: {}".format(loss))
                 break
 
         if best_params is not None:
@@ -113,7 +120,8 @@ class StandardModel(nn.Module):
         return 0.0
 
     def predict(self, x):
-        x = torch.from_numpy(x).float().to(self.device)
+        if type(x) == np.ndarray:
+            x = torch.from_numpy(x).float().to(self.device)
 
         out = self.forward(x)
 
@@ -122,7 +130,8 @@ class StandardModel(nn.Module):
         return pred.cpu().numpy()
 
     def predict_proba(self, x):
-        x = torch.from_numpy(x).float().to(self.device)
+        if type(x) == np.ndarray:
+            x = torch.from_numpy(x).float().to(self.device)
 
         softmax = torch.nn.Softmax(dim=1)
 
@@ -283,6 +292,23 @@ class NN(StandardModel):
         for i in range(len(self.fc) - 1):
             x = self.fc[i](x)
             x = self.activation(x)
+
+        x = self.fc[-1](x)
+
+        return x
+
+    def forward_extract(self, x, layer=0):
+        if layer >= len(self.fc):
+            print("Specified layer ({}) is larger than the total number of layer ({})".format(layer, len(self.fc)))
+            print("Returning embeddings from final layer ({})")
+            layer = len(self.fc) - 1
+
+        for i in range(len(self.fc) - 1):
+            x = self.fc[i](x)
+            x = self.activation(x)
+
+            if i == layer:
+                return x
 
         x = self.fc[-1](x)
 
@@ -455,3 +481,80 @@ class NNEWC(EWCModel):
             self.fc = nn.ModuleList([nn.Linear(self.num_features, 20).to(self.device),
                                      nn.Linear(20, 10).to(self.device),
                                      nn.Linear(10, 2).to(self.device)])
+
+
+class ReweightNN(torch.nn.Module):
+    def __init__(self, num_features, iterations=1000, lr=0.01, online_lr=0.01, optimizer_name="adam", reset_optim=True,
+                 tol=0.0001, hidden_layers=1, activation="relu", soft=False):
+        super(ReweightNN, self).__init__()
+
+        self.num_features = num_features
+        self.device = "cuda:0"
+        self.fc = None
+        self.lr = lr
+        self.iterations = iterations
+        self.online_lr = online_lr
+        self.optimizer_name = optimizer_name
+        self.reset_optim = reset_optim
+        self.tol = tol
+        self.hidden_layers = hidden_layers
+        self._create_layers(hidden_layers)
+
+        self.activation = getattr(nn, activation)()
+
+        opt = get_optimizer(self.optimizer_name)
+        self.optimizer = opt(self.parameters(), lr=self.lr)
+        self.soft = soft
+
+    def fit(self, x, y):
+        x, y = torch.from_numpy(x).float().to(self.device), torch.from_numpy(y).long().to(self.device)
+        meta_losses = []
+        net_losses = []
+
+        meta_loss = 0
+        net_loss = 0
+
+        meta_net = ReweightNN(self.num_features, self.iterations, self.lr, self.online_lr, self.optimizer_name,
+                              self.reset_optim, self.tol, self.hidden_layers, self.activation, self.soft)
+        meta_net = meta_net.to(self.device)
+
+        for i in range(self.iterations):
+            meta_net.load_state_dict(self.state_dict())
+
+            y_f_hat = meta_net(x)
+            cost = torch.nn.functional.binary_cross_entropy_loss_with_logits(y_f_hat, y, reduce=False)
+            eps = torch.zeros(len(cost)).to(cost.device)
+            l_f_meta = torch.sum(eps * cost)
+
+            meta_net.zero_grad()
+
+            grads = torch.autograd.grad(l_f_meta, meta_net.parameters(), create_graph=True)
+            meta_net.update_params(self.lr, source_params=grads)
+
+            y_g_hat = meta_net,
+
+    def forward(self, x):
+        x = x.to(self.device)
+
+        for i in range(len(self.fc) - 1):
+            x = self.fc[i](x)
+            x = self.activation(x)
+
+        x = self.fc[-1](x)
+
+        return x
+
+    def _create_layers(self, hidden_layers):
+        if hidden_layers == 0:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 2).to(self.device)])
+        elif hidden_layers == 1:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 10).to(self.device),
+                                    nn.Linear(10, 2).to(self.device)])
+        elif hidden_layers == 2:
+            self.fc = nn.ModuleList([nn.Linear(self.num_features, 20).to(self.device),
+                                     nn.Linear(20, 10).to(self.device),
+                                     nn.Linear(10, 2).to(self.device)])
+
+
+
+
