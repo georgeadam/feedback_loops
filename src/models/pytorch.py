@@ -9,14 +9,19 @@ from src.utils.optimizer import get_optimizer
 
 
 class StandardModel(nn.Module):
-    def __init__(self, iterations=1000, tol=0.0001):
+    def __init__(self, iterations=1000, tol=0.0001, warm_start=True):
         super(StandardModel, self).__init__()
 
         self.iterations = iterations
         self.tol = tol
         self.device = "cuda:0"
+        self.warm_start = warm_start
+        self.fitted = False
 
     def fit(self, x, y, sample_weight=None, log=True):
+        if self.fitted and not self.warm_start:
+            self.apply(weight_reset)
+
         if self.reset_optim:
             opt = get_optimizer(self.optimizer_name)
             self.optimizer = opt(self.parameters(), lr=self.lr)
@@ -84,6 +89,8 @@ class StandardModel(nn.Module):
 
         if best_params is not None:
             self.load_state_dict(best_params)
+
+        self.fitted = True
 
         return loss.item()
 
@@ -269,8 +276,8 @@ class EWCModel(nn.Module):
 
 class NN(StandardModel):
     def __init__(self, num_features, iterations=1000, lr=0.01, online_lr=0.01, optimizer_name="adam", reset_optim=True,
-                 tol=0.0001, hidden_layers=1, activation="relu", soft=False):
-        super(NN, self).__init__(iterations=iterations, tol=tol)
+                 tol=0.0001, hidden_layers=1, activation="relu", soft=False, warm_start=True):
+        super(NN, self).__init__(iterations=iterations, tol=tol, warm_start=warm_start)
 
         self.num_features = num_features
         self.device = "cuda:0"
@@ -324,6 +331,22 @@ class NN(StandardModel):
             self.fc = nn.ModuleList([nn.Linear(self.num_features, 20).to(self.device),
                                      nn.Linear(20, 10).to(self.device),
                                      nn.Linear(10, 2).to(self.device)])
+        elif hidden_layers > 2:
+            initial_hidden_units = 50 * (2 ** hidden_layers)
+            self.fc = [nn.Linear(self.num_features, initial_hidden_units).to(self.device)]
+            prev_hidden_units = initial_hidden_units
+
+            for i in range(1, hidden_layers):
+                next_hidden_units = int(initial_hidden_units / (2 ** i))
+                self.fc.append(nn.Linear(prev_hidden_units, next_hidden_units).to(self.device))
+
+                prev_hidden_units = next_hidden_units
+
+            self.fc.append(nn.Linear(prev_hidden_units, 2).to(self.device))
+            self.fc = nn.ModuleList(self.fc)
+
+
+
 
 
 class DeferNN(torch.nn.Module):
@@ -556,5 +579,8 @@ class ReweightNN(torch.nn.Module):
                                      nn.Linear(10, 2).to(self.device)])
 
 
+def weight_reset(m):
+    reset_parameters = getattr(m, "reset_parameters", None)
 
-
+    if callable(reset_parameters):
+        m.reset_parameters()

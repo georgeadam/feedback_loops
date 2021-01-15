@@ -40,7 +40,7 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
     elif args.type == "nn":
         return wrapped(NN, args.use_cv, args.cv, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations,
                        optimizer_name=args.optimizer, reset_optim=args.reset_optim, tol=args.tol,
-                       hidden_layers=args.hidden_layers, activation=args.activation)
+                       hidden_layers=args.hidden_layers, activation=args.activation, warm_start=args.warm_start)
     elif args.type == "svm_rbf":
         return wrapped(rbf_svm, args.use_cv, args.cv)
     elif args.type == "rf":
