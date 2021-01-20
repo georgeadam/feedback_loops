@@ -19,7 +19,7 @@ def train_update_loop_static(data_fn: DataFn=None, model_fn: ModelFn=None, updat
                              num_features: int=20, num_updates: int=100, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
                              ddr: str=None, ddp: str= "train", worst_case: bool=False, seeds: int=1,
                              clinician_fpr: float=0.0, clinician_trust: float=1.0, normalize: bool=True,
-                             **kwargs) -> (ResultDict, ResultDict):
+                             train_lambda: float=1.0, **kwargs) -> (ResultDict, ResultDict):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
 
@@ -75,7 +75,7 @@ def train_update_loop_static(data_fn: DataFn=None, model_fn: ModelFn=None, updat
         new_model, updated_rates = update_fn(model, x_train, y_train, x_update, y_update, x_test, y_test, num_updates,
                                              intermediate=True, threshold=threshold, ddr=ddr, ddv=ddv, ddp=ddp,
                                              clinician_fpr=clinician_fpr, clinician_trust=clinician_trust,
-                                             scaler=scaler)
+                                             scaler=scaler, train_lambda=train_lambda)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])
@@ -142,7 +142,7 @@ def train_update_loop_temporal(data_fn: DataFn=None, model_fn: ModelFn=None, upd
                                tyl: int=1999, uyl: int=2019, idr: str= "fpr", idv: float=0.1, tvp: float=0.0,
                                ddr: str=None, ddp: str= "train", next_year: bool=True,
                                seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
-                               normalize: bool=True, **kwargs) -> (ResultDict, ResultDict):
+                               normalize: bool=True, train_lambda: float=1.0, **kwargs) -> (ResultDict, ResultDict):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
 
@@ -207,7 +207,7 @@ def train_update_loop_temporal(data_fn: DataFn=None, model_fn: ModelFn=None, upd
         new_model, updated_rates = update_fn(model, x_train, y_train, x_rest, y_rest, years_rest, tyl, uyl,
                                              next_year=next_year, intermediate=True, threshold=threshold, ddr=ddr,
                                              ddv=ddv, ddp=ddp, clinician_fpr=clinician_fpr,
-                                             clinician_trust=clinician_trust, scaler=scaler)
+                                             clinician_trust=clinician_trust, scaler=scaler, train_lambda=train_lambda)
 
         for key in rates.keys():
             rates[key].append([initial_rates[key]] + updated_rates[key])
@@ -224,13 +224,13 @@ def call_update_loop(args: DictConfig, data_fn: Callable, model_fn: Callable, up
                                           idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
                                           ddp=args.rates.ddp, next_year=args.data.next_year, seeds=args.misc.seeds,
                                           clinician_fpr=args.rates.clinician_fpr, clinician_trust=args.rates.clinician_trust,
-                                          normalize=args.data.normalize)
+                                          normalize=args.data.normalize, train_lambda=args.rates.train_lambda)
     else:
         return train_update_loop_static(data_fn, model_fn, update_fn, n_train=args.data.n_train, n_update=args.data.n_update,
                                         n_test=args.data.n_test, num_features=args.data.num_features, num_updates=args.data .num_updates,
                                         idr=args.rates.idr, idv=args.rates.idv, tvp=args.rates.tvp, ddr=args.rates.ddr,
                                         ddp=args.rates.ddp, worst_case=args.data.worst_case, seeds=args.misc.seeds,
                                         clinician_fpr=args.rates.clinician_fpr, clinician_trust=args.rates.clinician_trust,
-                                        normalize=args.data.normalize)
+                                        normalize=args.data.normalize, train_lambda=args.rates.train_lambda)
 
 

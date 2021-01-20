@@ -6,3 +6,4 @@ ddr: fpr # Dynamic desired rate
 ddp: all # Dynamic desired partition
 clinician_fpr: 0.0
 clinician_trust: 1.0
+train_lambda: 1.0

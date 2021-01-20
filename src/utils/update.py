@@ -200,7 +200,7 @@ def update_model_static(model: Model, x_train: np.ndarray, y_train: np.ndarray, 
                         agg_data: bool=False, include_train: bool=False, weight_type: str=None, fit_type: str="fit", feedback: bool=False,
                         update: bool=True, intermediate: bool=False, trust_fn: Callable=full_trust, clinician_fpr: float=0.0, clinician_trust: float=1.0,
                         threshold: Optional[float]=None, ddr: Optional[str]=None, ddv: Optional[float]=None, ddp: Optional[str]=None,
-                        tvp: float=0.2, scaler: Transformer=None, flip_type: Optional[str]=None):
+                        tvp: float=0.2, scaler: Transformer=None, flip_type: Optional[str]=None, train_lambda: float=1.0):
     new_model = copy.deepcopy(model)
 
     size = float(len(y_update)) / float(num_updates)
@@ -208,7 +208,7 @@ def update_model_static(model: Model, x_train: np.ndarray, y_train: np.ndarray, 
     agg_y_update = np.array([]).astype(int)
 
     rates = create_empty_rates()
-    train_weights = initialize_weights(weight_type, x_train, include_train)
+    train_weights = initialize_weights(weight_type, x_train, include_train, train_lambda)
     agg_update_weights = np.array([]).astype(float)
 
     for i in range(num_updates):
@@ -251,7 +251,7 @@ def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray
                           next_year: bool=True, trust_fn: Callable=full_trust, clinician_fpr: float=0.0, clinician_trust: float=1.0,
                           intermediate: bool=False, threshold: Optional[float]=None, ddr: Optional[str]=None,
                           ddv: Optional[float]=None, ddp: Optional[str]=None, tvp: float=0.2, scaler: Transformer=None,
-                          flip_type: Optional[str]=None):
+                          flip_type: Optional[str]=None, train_lambda: float=1.0):
     new_model = copy.deepcopy(model)
 
     agg_x_update = np.array([]).astype(float).reshape(0, x_train.shape[1])
@@ -259,7 +259,7 @@ def update_model_temporal(model: Model, x_train: np.ndarray, y_train: np.ndarray
 
     rates = create_empty_rates()
 
-    train_weights = initialize_weights(weight_type, x_train, include_train)
+    train_weights = initialize_weights(weight_type, x_train, include_train, train_lambda)
     agg_update_weights = np.array([]).astype(float)
 
     for year in range(tyl + 1, uyl):
@@ -420,11 +420,11 @@ def append_rates(intermediate: bool, new_model: Model, rates: Dict[str, List[flo
         rates["fp_prop"].append(rates["fp_count"][-1] / rates["total_samples"][-1])
 
 
-def initialize_weights(weight_type: str, x_train: np.ndarray, include_train: bool):
+def initialize_weights(weight_type: str, x_train: np.ndarray, include_train: bool, train_lambda: float):
     if weight_type is None:
-        weights = np.array(np.ones(len(x_train)))
+        weights = np.array(np.ones(len(x_train))) * train_lambda
     elif include_train:
-        weights = np.array(np.ones(len(x_train)))
+        weights = np.array(np.ones(len(x_train))) * train_lambda
     else:
         weights = np.array([]).astype(float)
 
