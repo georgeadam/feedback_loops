@@ -1,0 +1,4 @@
+# @package _group_
+name: resnet18
+pretrained: False
+device: "cuda:0"
