@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - data: non_temporal
+  - misc: lre
+  - model: lre
+  - optim: lre
+hydra:
+  run:
+    dir: results/lre/${now:%Y-%m-%d-%H-%M-%S.%f}/
+  output_subdir: .

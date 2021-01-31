@@ -1,0 +1,5 @@
+# @package _group_
+lr: 0.1
+momentum: 0.0
+weight_decay: 0.0
+epochs: 2500

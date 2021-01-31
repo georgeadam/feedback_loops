@@ -1,0 +1,5 @@
+# @package _group_
+type: nn_meta
+hidden_layers: 4
+activation: "ReLU"
+device: "cpu"
