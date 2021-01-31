@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from scipy.stats import multivariate_normal
 
-from sklearn.datasets import make_classification, make_gaussian_quantiles
+from sklearn.datasets import make_classification, make_gaussian_quantiles, make_circles
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.utils import check_array, check_random_state
@@ -46,6 +46,8 @@ def get_data_fn(d: DictConfig, m: DictConfig) -> DataFn:
                                      categorical=mimic_iv_paths[d.type]["categorical"], model=m.type)
     elif d.type == "moons":
         return generate_moons_dataset(d.start, d.end, d.noise)
+    elif d.type == "circles":
+        return generate_circles_dataset(d.noise)
     elif d.type == "support2":
         return generate_real_dataset(load_support2cls_data)
 
@@ -203,19 +205,22 @@ def generate_moons_dataset(start: float=0.0, end: float=np.pi, noise: float=0.0)
     def wrapped(n_train: int, n_update: int, n_test: int, num_features: int=2) -> Tuple:
         x_train, y_train = make_moons(n_train, start=0.0, end=np.pi, noise=noise)
         x_update, y_update = make_moons(n_update, start=start, end=end, noise=noise)
-        x_test, y_test = make_moons(n_test, start=0.0, end=end, noise=noise)
+        x_test, y_test = make_moons(n_test, start=0.0, end=end, noise=0.0)
 
         return x_train, y_train, x_update, y_update, x_test, y_test, None
 
     return wrapped
 
 
-def generate_circles_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0):
-    x, y = make_moons(n_train + n_update + n_test, noise=noise)
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_update + n_test)
-    x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test)
+def generate_circles_dataset(noise: float=0.0):
+    def wrapped(n_train: int, n_update: int, n_test: int, num_features: int):
+        x_train, y_train = make_circles(n_train, noise=noise)
+        x_update, y_update = make_circles(n_update, noise=noise)
+        x_test, y_test = make_circles(n_test, noise=0.0)
 
-    return x_train, y_train, x_update, y_update, x_test, y_test
+        return x_train, y_train, x_update, y_update, x_test, y_test, None
+
+    return wrapped
 
 
 def generate_gaussian_quantile_dataset(n_train: int, n_update: int, n_test: int, num_features: int=2, noise: float=0.0) -> Tuple:
