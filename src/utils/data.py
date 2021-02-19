@@ -459,3 +459,21 @@ def load_mimic_iv_data(path: str, categorical: bool=False, model: str="lr") -> D
     }
 
     return dataset
+
+
+class UpdateDataWrapper():
+    def __init__(self, x, y, num_updates):
+        self.x = x
+        self.y = y
+        self.num_updates = num_updates
+        self.update_size = float(len(x)) / float(num_updates)
+
+    def __iter__(self):
+        for i in range(self.num_updates):
+            idx_start = int(self.update_size * i)
+            idx_end = int(self.update_size * (i + 1))
+
+            yield self.x[idx_start: idx_end], self.y[idx_start: idx_end]
+
+
+
