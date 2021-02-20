@@ -1,8 +1,12 @@
-# @package _group_
-lr: 0.1
-lre_lr: 0.01
-momentum: 0.0
-weight_decay: 0.0
-epochs: 2500
-regular_tol: 0.01
-lre_tol: 0.1
+defaults:
+  - regular: regular
+  - lre: lre
+#regular_momentum: 0.0
+#regular_optimizer: SGD
+#regular_weight_decay: 0.0
+#lre_lr: 0.01
+#lre_optimizer: SGD
+#lre_momentum: 0.0
+#lre_weight_decay: 0.0
+#epochs: 2500
+#early_stopping_iter: 20

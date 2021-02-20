@@ -109,8 +109,8 @@ def train_regular(model, x_train, y_train, x_val, y_val, optimizer, epochs, earl
     return losses
 
 
-def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, optimizer, args, writer,
-              writer_prefix, device="cpu"):
+def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, optimizer, model_args,
+              optim_args, writer, writer_prefix, device="cpu"):
     meta_losses_clean = []
     net_losses = []
     best_train_loss = float("inf")
@@ -131,7 +131,7 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
         # Line 2 get batch of data
         # since validation data is small I just fixed them instead of building an iterator
         # initialize a dummy network for the meta learning of the weights
-        meta_model = NN_Meta(x_train.shape[1], 2, args.model.hidden_layers, args.model.activation, device)
+        meta_model = NN_Meta(x_train.shape[1], 2, model_args.hidden_layers, model_args.activation, device)
         meta_model.load_state_dict(model.state_dict())
         meta_model = meta_model.to(x_train.device)
 
@@ -146,7 +146,7 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
 
         # Line 6 perform a parameter update
         grads = torch.autograd.grad(l_f_meta, (meta_model.params()), create_graph=True)
-        meta_model.update_params(args.optim.lre_lr, source_params=grads)
+        meta_model.update_params(optim_args.lr, source_params=grads)
 
         # Line 8 - 10 2nd forward pass and getting the gradients with respect to epsilon
         y_g_hat = meta_model(x_val_lre)
@@ -197,14 +197,14 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
 
         if unweighted_loss < best_train_loss:
             no_train_improvement = 0
-        else:
+        elif no_val_improvement > 0:
             no_train_improvement += 1
 
-        if no_train_improvement > args.optim.early_stopping_iter:
+        if no_train_improvement > optim_args.early_stopping_iter:
             done = True
             logger.info("No improvement in train loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
 
-        if no_val_improvement > args.optim.early_stopping_iter:
+        if no_val_improvement > optim_args.early_stopping_iter:
             done = True
             logger.info("No improvement in validation loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
 
@@ -215,7 +215,7 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
                                                                                                                                        l_g_meta.item(),
                                                                                                                                        val_loss.item()))
 
-        if epoch > args.optim.epochs:
+        if epoch > optim_args.epochs:
             break
 
         log_lre_losses(writer, writer_prefix, unweighted_loss.item(), val_loss.item(), l_g_meta.item(), epoch)
@@ -229,7 +229,7 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
                                                                                                                    best_epoch))
 
     if not done:
-        logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(args.optim.epochs))
+        logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(optim_args.epochs))
 
     return meta_losses_clean, net_losses, w
 

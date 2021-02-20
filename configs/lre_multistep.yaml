@@ -1,4 +1,3 @@
-# @package _global_
 defaults:
   - data: non_temporal
   - misc: lre

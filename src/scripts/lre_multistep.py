@@ -1,10 +1,9 @@
 import copy
 import multiprocessing as mp
-import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+
+from torch.utils.tensorboard import SummaryWriter
 
 
 import hydra.experimental
@@ -16,41 +15,43 @@ from datetime import datetime
 from omegaconf import DictConfig
 from settings import ROOT_DIR
 
-from sklearn.model_selection import train_test_split
-
-from src.utils.metrics import compute_all_rates
-from src.utils.preprocess import get_scaler
+from src.utils.optimizer import create_optimizer
 from src.utils.rand import set_seed
-from src.utils.data import get_data_fn, UpdateDataWrapper
+from src.utils.data import UpdateDataWrapper
 from src.utils.save import CSV_FILE
+from src.utils.str_formatting import SafeDict
 
 from src.models.lre import NN_Meta
-from src.scripts.helpers.lre.lre import load_data, train_regular, train_lre, eval_model, create_corrupted_labels
+from src.scripts.helpers.generic.train import load_data, train_regular, train_lre, eval_model, create_corrupted_labels
 
 
 os.chdir(ROOT_DIR)
 config_path = os.path.join(ROOT_DIR, "configs/lre_multistep.yaml")
+# config_path = os.path.join(ROOT_DIR, "configs")
+# config_name = "temp"
 
 
-def update_loop(x_train, y_train, x_val, y_val, x_update, y_update, x_test, y_test,
-                args, train_fn, seed, corrupt=False):
+def update_loop(data, data_args, model_args, optim_args, train_fn, seed, writer, writer_prefix, corrupt=False):
     set_seed(seed)
-    model = NN_Meta(x_train.shape[1], 2, args.model.hidden_layers, args.model.activation, args.model.device)
-    optimizer = torch.optim.SGD(model.params(), args.optim.lr)
+    model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
+    optimizer = create_optimizer(model.params(), optim_args.regular.optimizer, optim_args.regular.lr,
+                                 optim_args.regular.momentum, optim_args.regular.weight_decay)
 
-    _ = train_regular(model, x_train, y_train, optimizer, args.optim.epochs, args.optim.regular_tol)
-    initial_rates = eval_model(model, x_test, y_test)
+    _ = train_regular(model, data["x_train"], data["y_train"], data["x_val_reg"], data["y_val_reg"],
+                      optimizer, optim_args.regular.epochs, optim_args.regular.early_stopping_iter,
+                      writer, writer_prefix.format_map(SafeDict(update_num="0", type="initial")))
+    initial_rates = eval_model(model, data["x_test"], data["y_test"])
 
-    x_update = copy.deepcopy(x_update)
-    y_update = copy.deepcopy(y_update)
+    x_update = copy.deepcopy(data["x_update"])
+    y_update = copy.deepcopy(data["y_update"])
 
-    update_wrapper = UpdateDataWrapper(x_update, y_update, args.data.num_updates)
-    x_cumulative = x_train
-    y_cumulative = y_train
+    update_wrapper = UpdateDataWrapper(x_update, y_update, data_args.num_updates)
+    x_cumulative = data["x_train"]
+    y_cumulative = data["y_train"]
 
     cumulative_rates = {key: [initial_rates[key]] for key in initial_rates.keys()}
 
-    for x_update_partial, y_update_partial in update_wrapper:
+    for update_num, (x_update_partial, y_update_partial) in enumerate(update_wrapper, start=1):
         if corrupt:
             y_update_partial = create_corrupted_labels(model, x_update_partial, y_update_partial)
 
@@ -58,17 +59,22 @@ def update_loop(x_train, y_train, x_val, y_val, x_update, y_update, x_test, y_te
                                                                    x_update_partial, y_update_partial)
 
         set_seed(seed)
-        model = NN_Meta(x_train.shape[1], 2, args.model.hidden_layers, args.model.activation, args.model.device)
-        optimizer = torch.optim.SGD(model.params(), args.optim.lr, momentum=args.optim.momentum,
-                                    weight_decay=args.optim.weight_decay)
+        model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
 
         if train_fn is train_regular:
-            _ = train_regular(model, x_cumulative, y_cumulative, optimizer, args.optim.epochs, args.optim.regular_tol)
+            optimizer = create_optimizer(model.params(), optim_args.regular.optimizer, optim_args.regular.lr,
+                                         optim_args.regular.momentum, optim_args.regular.weight_decay)
+            _ = train_regular(model, x_cumulative, y_cumulative, data["x_val_reg"], data["y_val_reg"],
+                              optimizer, optim_args.regular.epochs, optim_args.regular.early_stopping_iter,
+                              writer, writer_prefix.format_map(SafeDict(update_num=str(update_num), type="update")))
         elif train_fn is train_lre:
-            _, _, _ = train_lre(model, x_cumulative, y_cumulative, x_val, y_val, optimizer, args,
-                                args.model.device)
+            optimizer = create_optimizer(model.params(), optim_args.lre.optimizer, optim_args.lre.lr,
+                                         optim_args.lre.momentum, optim_args.lre.weight_decay)
+            _, _, _ = train_lre(model, x_cumulative, y_cumulative, data["x_val_reg"], data["y_val_reg"],
+                                data["x_val_lre"], data["y_val_lre"], optimizer, model_args, optim_args.lre,
+                                writer, writer_prefix.format_map(SafeDict(update_num=str(update_num), type="update")), model_args.device)
 
-        rates = eval_model(model, x_test, y_test)
+        rates = eval_model(model, data["x_test"], data["y_test"])
         update_rates(cumulative_rates, rates)
 
     return cumulative_rates
@@ -94,22 +100,22 @@ def update_rates(cumulative_rates, rates):
 
 
 def loop(seed, args):
+    writer = SummaryWriter("tensorboard_logs/{}".format(seed))
     results = {"train_type": [], "num_updates": []}
     set_seed(seed)
-    (x_train, y_train, x_val, y_val,
-     x_update, y_update, x_test, y_test) = load_data(args.data, args.model)
+    data = load_data(args.data, args.model)
 
-    regular_clean_rates = update_loop(x_train, y_train, x_val, y_val, x_update, y_update,
-                                      x_test, y_test, args, train_regular, seed, corrupt=False)
+    writer_prefix = "{type}/regular_clean/{update_num}/{name}"
+    regular_clean_rates = update_loop(data, args.data, args.model, args.optim, train_regular, seed, writer, writer_prefix, corrupt=False)
 
-    regular_corrupt_rates = update_loop(x_train, y_train, x_val, y_val, x_update, y_update,
-                                        x_test, y_test, args, train_regular, seed, corrupt=True)
+    writer_prefix = "{type}/regular_corrupt/{update_num}/{name}"
+    regular_corrupt_rates = update_loop(data, args.data, args.model, args.optim, train_regular, seed, writer, writer_prefix, corrupt=True)
 
-    lre_clean_rates = update_loop(x_train, y_train, x_val, y_val, x_update, y_update,
-                                  x_test, y_test, args, train_lre, seed, corrupt=False)
+    writer_prefix = "{type}/lre_clean/{update_num}/{name}"
+    lre_clean_rates = update_loop(data, args.data, args.model, args.optim, train_lre, seed, writer, writer_prefix, corrupt=False)
 
-    lre_corrupt_rates = update_loop(x_train, y_train, x_val, y_val, x_update, y_update,
-                                    x_test, y_test, args, train_lre, seed, corrupt=True)
+    writer_prefix = "{type}/lre_corrupt/{update_num}/{name}"
+    lre_corrupt_rates = update_loop(data, args.data, args.model, args.optim, train_lre, seed, writer, writer_prefix, corrupt=True)
 
     grouped_rates = {"regular_fused_clean": regular_clean_rates, "regular_fused_corrupt": regular_corrupt_rates,
                      "lre_fused_clean": lre_clean_rates, "lre_fused_corrupt": lre_corrupt_rates}
