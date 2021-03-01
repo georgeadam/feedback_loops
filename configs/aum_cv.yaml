@@ -1,5 +1,6 @@
+# @package _global_
 defaults:
-  - data: non_temporal
+  - data: aum
   - misc: aum
   - model: aum
   - optim: aum

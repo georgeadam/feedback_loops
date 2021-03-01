@@ -1,0 +1,5 @@
+# @package _group_
+batch_size: 256
+data_dir: "data/cifar10"
+noise: 0.1
+augmentation: False

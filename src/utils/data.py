@@ -190,11 +190,7 @@ def generate_sklearn_make_classification_dataset(noise: float=0.0) -> Callable:
         cols = np.arange(num_features)
 
         if noise > 0.0:
-            neg_idx = y_train == 0
-            bernoulli = np.random.choice([False, True], len(y_train), p=[1 - noise, noise])
-            neg_idx = np.logical_and(neg_idx, bernoulli)
-            neg_idx = np.where(neg_idx)
-            y_train[neg_idx] = 1
+            y_train = corrupt_labels(y_train, noise)
 
         return x_train, y_train, x_update, y_update, x_test, y_test, cols
 
@@ -203,9 +199,12 @@ def generate_sklearn_make_classification_dataset(noise: float=0.0) -> Callable:
 
 def generate_moons_dataset(start: float=0.0, end: float=np.pi, noise: float=0.0) -> Callable:
     def wrapped(n_train: int, n_update: int, n_test: int, num_features: int=2) -> Tuple:
-        x_train, y_train = make_moons(n_train, start=0.0, end=np.pi, noise=noise)
-        x_update, y_update = make_moons(n_update, start=start, end=end, noise=noise)
+        x_train, y_train = make_moons(n_train, start=0.0, end=np.pi, noise=0.2)
+        x_update, y_update = make_moons(n_update, start=start, end=end, noise=0.2)
         x_test, y_test = make_moons(n_test, start=0.0, end=end, noise=0.0)
+
+        if noise > 0.0:
+            y_train = corrupt_labels(y_train, noise)
 
         return x_train, y_train, x_update, y_update, x_test, y_test, None
 
@@ -316,6 +315,7 @@ def generate_real_dataset(fn: Callable, path: str=None, balanced: bool=False, te
             year_idx = i
         elif not (column == "age" or column == "gender" or column == "ethnicity" or column.startswith("age_") or column.startswith("gender_")
             or column.startswith("ethnicity_")):
+            # This assumes that the year column is the first column in the dataframe
                 normalize_cols.append(i - 1)
 
     if "year" in data["X"].columns and temporal:
@@ -459,6 +459,14 @@ def load_mimic_iv_data(path: str, categorical: bool=False, model: str="lr") -> D
     }
 
     return dataset
+
+
+def corrupt_labels(y, noise):
+    y = copy.deepcopy(y)
+    flip_indices = np.random.choice(len(y), int(noise * len(y)), replace=False)
+    y[flip_indices] = 1 - y[flip_indices]
+
+    return y
 
 
 class UpdateDataWrapper():

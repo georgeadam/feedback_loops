@@ -1,0 +1,9 @@
+defaults:
+  - data: non_temporal
+  - misc: data_shapley
+  - model: data_shapley
+  - optim: data_shapley
+hydra:
+  run:
+    dir: results/data_shapley/${now:%Y-%m-%d-%H-%M-%S.%f}/
+  output_subdir: .

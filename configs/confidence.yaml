@@ -1,0 +1,9 @@
+defaults:
+  - data: non_temporal
+  - misc: confidence
+  - model: confidence
+  - optim: confidence
+hydra:
+  run:
+    dir: results/confidence/${now:%Y-%m-%d-%H-%M-%S.%f}/
+  output_subdir: .

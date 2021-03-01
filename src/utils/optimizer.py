@@ -8,15 +8,15 @@ def get_optimizer(name):
         return torch.optim.Adam
 
 
-def create_optimizer(params, optimizer, lr, momentum, weight_decay):
+def create_optimizer(params, optimizer, lr, momentum, nesterov, weight_decay):
     if optimizer == "SGD":
-        return create_sgd(params, lr, momentum, weight_decay)
+        return create_sgd(params, lr, momentum, nesterov, weight_decay)
     elif optimizer == "Adam":
         return create_adam(params, lr, weight_decay)
 
 
-def create_sgd(params, lr, momentum, weight_decay):
-    return torch.optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
+def create_sgd(params, lr, momentum, nesterov, weight_decay):
+    return torch.optim.SGD(params, lr=lr, momentum=momentum, nesterov=nesterov, weight_decay=weight_decay)
 
 
 def create_adam(params, lr, weight_decay):

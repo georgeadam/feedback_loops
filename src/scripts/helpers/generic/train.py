@@ -18,7 +18,7 @@ def load_data(data_args, model_args):
     x_train, y_train, x_update, y_update, x_test, y_test, cols = data_fn(data_args.n_train, data_args.n_update,
                                                                          data_args.n_test,
                                                                          num_features=data_args.num_features)
-    x_update, x_val, y_update, y_val = train_test_split(x_update, y_update, test_size=0.1)
+    x_update, x_val, y_update, y_val = train_test_split(x_update, y_update, test_size=0.4)
     x_val_reg, x_val_lre, y_val_reg, y_val_lre = train_test_split(x_val, y_val, test_size=0.5)
 
     scaler = get_scaler(True, cols)
@@ -43,7 +43,8 @@ def load_data(data_args, model_args):
     return data
 
 
-def train_regular(model, x_train, y_train, x_val, y_val, optimizer, epochs, early_stopping_iter, writer, writer_prefix):
+def train_regular(model, x_train, y_train, x_val, y_val, optimizer, epochs, early_stopping_iter, writer, writer_prefix,
+                  write=True):
     model.train()
     losses = []
     best_val_loss = float("inf")
@@ -85,16 +86,19 @@ def train_regular(model, x_train, y_train, x_val, y_val, optimizer, epochs, earl
 
         if no_train_improvement > early_stopping_iter:
             done = True
-            logger.info("No improvement in train loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
+            logger.info("No improvement in train loss for {} epochs at epoch: {}. Stopping.".format(early_stopping_iter,
+                                                                                                    epoch))
 
         if no_val_improvement > early_stopping_iter:
             done = True
-            logger.info("No improvement in validation loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
+            logger.info("No improvement in validation loss for {} epochs at epoch: {}. Stopping.".format(early_stopping_iter,
+                                                                                                         epoch))
 
         if epoch > epochs:
             break
 
-        log_regular_losses(writer, writer_prefix, train_loss.item(), val_loss.item(), epoch)
+        if write:
+            log_regular_losses(writer, writer_prefix, train_loss.item(), val_loss.item(), epoch)
 
         epoch += 1
 
@@ -202,11 +206,13 @@ def train_lre(model, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lr
 
         if no_train_improvement > optim_args.early_stopping_iter:
             done = True
-            logger.info("No improvement in train loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
+            logger.info("No improvement in train loss for {} epochs at epoch: {}. Stopping.".format(optim_args.early_stopping_iter,
+                                                                                                    epoch))
 
         if no_val_improvement > optim_args.early_stopping_iter:
             done = True
-            logger.info("No improvement in validation loss for 20 epochs at epoch: {}. Stopping.".format(epoch))
+            logger.info("No improvement in validation loss for {} epochs at epoch: {}. Stopping.".format(optim_args.early_stopping_iter,
+                                                                                                         epoch))
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Weighted Train Loss: {} | Unweighted Train Loss: {} | LRE Val Loss: {} | Reg Val Loss: {}".format(epoch,
