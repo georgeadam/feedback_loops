@@ -57,3 +57,21 @@ def get_weights(weight_type: str, sub_conf: np.ndarray, sub_y: np.ndarray, sub_y
         weights = np.array(np.ones(len(sub_y)))
 
     return weights
+
+
+def initialize_weights(weight_type: str, x_train: np.ndarray, include_train: bool, train_lambda: float):
+    if weight_type is None:
+        weights = np.array(np.ones(len(x_train))) * train_lambda
+    elif include_train:
+        weights = np.array(np.ones(len(x_train))) * train_lambda
+    else:
+        weights = np.array([]).astype(float)
+
+    return weights
+
+
+def build_cumulative_weights(cumulative_weights: np.ndarray, update_weights: np.ndarray, agg_data: bool):
+    if agg_data:
+        cumulative_weights = np.concatenate([update_weights, cumulative_weights])
+
+    return cumulative_weights

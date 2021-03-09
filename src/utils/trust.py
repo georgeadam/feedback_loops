@@ -1,6 +1,7 @@
 from typing import Any
 import numpy as np
 
+
 def full_trust(*args: Any, **kwargs: Any) -> float:
     return 1.0
 
@@ -24,3 +25,16 @@ def confidence_threshold_trust(model_prob: np.array, **kwargs: Any) -> float:
     temp[drop_idx] = 0
 
     return temp
+
+
+def get_trust_fn(trust_fn_name):
+    if trust_fn_name == "full_trust":
+        return full_trust
+    elif trust_fn_name == "conditional_trust":
+        return conditional_trust
+    elif trust_fn_name == "constant_trust":
+        return constant_trust
+    elif trust_fn_name == "confidence_trust":
+        return confidence_trust
+    elif trust_fn_name == "confidence_threshold_trust":
+        return confidence_threshold_trust

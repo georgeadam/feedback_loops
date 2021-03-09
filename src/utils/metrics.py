@@ -4,6 +4,10 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_s
 
 from typing import Dict, Tuple, SupportsFloat
 
+from src.utils.detection import detect_feedback_loop
+from src.utils.typing import Model, Transformer
+
+
 @jit
 def fast_auc(y_true: np.ndarray, y_prob: np.ndarray) -> float:
     if len(y_true) == np.sum(y_true):
@@ -94,26 +98,43 @@ def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, ini
         fp_conf = np.mean(y_prob[fp_idx, 0])
         pos_conf = np.mean(y_prob[pos_idx, 0])
 
-    if initial:
-        fp_count = 0
-        total_samples = 0
-    else:
-        fp_count = int(np.sum(fp_idx))
-        total_samples = len(y)
+    fp_count = int(np.sum(fp_idx))
+    total_samples = len(y)
 
-    if initial:
-        rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
-                 "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-                 "total_samples": total_samples, "fp_prop": 0.0, "acc": acc, "detection": None}
-    else:
-        rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
-                 "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-                 "total_samples": total_samples, "acc": acc, "detection": None}
+    rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
+             "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
+             "total_samples": total_samples, "acc": acc, "detection": None}
 
     return rates
 
 
-def compute_fp_portion(y: np.ndarray, y_pred: np.ndarray) -> float:
-    fp_idx = np.logical_and(y == 0, y_pred == 1)
+class RateTracker():
+    def __init__(self):
+        self._rates = {}
 
-    return np.sum(fp_idx) / len(y)
+    def get_rates(self):
+        return self._rates
+
+    def update_rates(self, y, pred, prob):
+        new_rates = compute_all_rates(y, pred, prob)
+
+        for key, value in new_rates.items():
+            if key in self._rates.keys():
+                self._rates[key].append(value)
+            else:
+                self._rates[key] = [value]
+
+    def update_detection(self, y_train, y_update):
+        p = detect_feedback_loop(y_train, y_update)
+
+        self._rates["detection"][-1] = p
+
+
+def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, threshold: float, scaler: Transformer):
+    y_prob = model.predict_proba(scaler.transform(x))
+    y_pred = y_prob[:, 1] > threshold
+
+    fp_idx = np.logical_and(y == 0, y_pred == 1)
+    neg = np.sum(y == 0)
+
+    return float(np.sum(fp_idx) / neg)
