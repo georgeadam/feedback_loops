@@ -31,7 +31,7 @@ class AUMNNTrainer:
 
         self._optimizer = None
         self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
-        self._writer_prefix = "{type}/lre_clean/{update_num}/{name}"
+        self._writer_prefix = "{type}/{update_num}/{name}"
         self._write = True
 
     def initial_fit(self, model, data_wrapper, scaler):
@@ -44,7 +44,8 @@ class AUMNNTrainer:
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
         train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
-                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0")
+                         self._epochs, self._early_stopping_iter, self._writer,
+                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._warm_start:
@@ -65,15 +66,17 @@ class AUMNNTrainer:
         margins = train_aum(auxiliary_model, auxiliary_optimizer, x_train, y_train, x_val, y_val,
                             self._epochs, self._early_stopping_iter,
                             self._writer, self._writer_prefix.format_map(SafeDict(type="aum", update_num=update_num)), self._write)
-        relevant_margins = margins[-len(x_update):]
+
+        relevant_margins = torch.stack(margins, dim=1)
+        aum = torch.mean(relevant_margins, dim=1)[-len(x_update):]
 
         with torch.no_grad():
             auxiliary_out = auxiliary_model(scaler.transform(x_update))
             auxiliary_pred = torch.max(auxiliary_out, 1)[1].detach().cpu().numpy()
 
         fpr = rate_tracker.get_rates()["fpr"][-1]
-        pos_indices = np.where(auxiliary_pred == 1)
-        sorted_indices = torch.argsort(relevant_margins).detach().cpu().numpy()
+        pos_indices = (auxiliary_pred == 1)
+        sorted_indices = torch.argsort(aum).detach().cpu().numpy()
 
         potentially_mislabeled_samples = int(fpr * np.sum(pos_indices))
         bad_indices = sorted_indices[pos_indices[sorted_indices]][:potentially_mislabeled_samples]
@@ -107,6 +110,12 @@ def train_aum(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_st
     no_val_improvement = 0
 
     margins = []
+
+    x_train = torch.from_numpy(x_train).float().to(model.device)
+    y_train = torch.from_numpy(y_train).long().to(model.device)
+
+    x_val = torch.from_numpy(x_val).float().to(model.device)
+    y_val = torch.from_numpy(y_val).long().to(model.device)
 
     while not done:
         out = model(x_train)

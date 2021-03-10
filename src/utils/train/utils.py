@@ -23,7 +23,7 @@ def get_trainer(args):
                        nesterov=args.optim.nesterov, epochs=args.optim.epochs,
                        early_stopping_iter=args.optim.early_stopping_iter, weight_decay=args.optim.weight_decay,
                        device=args.optim.device)
-    elif args.model.type in NN_MODEL_TYPES and args.optim_type == "nn_aum":
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_aum":
         return wrapped(AUMNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optimizer=args.optim.optimizer, lr=args.optim.lr, momentum=args.optim.momentum,
                        nesterov=args.optim.nesterov, epochs=args.optim.epochs,
