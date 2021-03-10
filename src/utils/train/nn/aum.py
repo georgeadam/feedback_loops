@@ -14,20 +14,18 @@ logger = logging.getLogger(__name__)
 
 
 class AUMNNTrainer:
-    def __init__(self, model_fn, seed, warm_start, update, optimizer, lr, momentum,
-                 nesterov, weight_decay, epochs, early_stopping_iter, device, **kwargs):
+    def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
-        self._epochs = epochs
-        self._early_stopping_iter = early_stopping_iter
+        self._epochs = optim_args.epochs
+        self._early_stopping_iter = optim_args.early_stopping_iter
         self._model_fn = model_fn
-        self._device = device
 
-        self._optimizer_name = optimizer
-        self._lr = lr
-        self._momentum = momentum
-        self._nesterov = nesterov
-        self._weight_decay = weight_decay
+        self._optimizer_name = optim_args.optimizer
+        self._lr = optim_args.lr
+        self._momentum = optim_args.momentum
+        self._nesterov = optim_args.nesterov
+        self._weight_decay = optim_args.weight_decay
 
         self._optimizer = None
         self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
@@ -49,11 +47,11 @@ class AUMNNTrainer:
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._warm_start:
-            model = self._model_fn(data_wrapper.dimension).to(self._device)
+            model = self._model_fn(data_wrapper.dimension).to(model.device)
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
-        auxiliary_model = self._model_fn(data_wrapper.dimension).to(self._device)
+        auxiliary_model = self._model_fn(data_wrapper.dimension).to(model.device)
         auxiliary_optimizer = create_optimizer(auxiliary_model.parameters(), self._optimizer_name, self._lr,
                                                self._momentum, self._nesterov, self._weight_decay)
 

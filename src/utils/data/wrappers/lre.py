@@ -11,7 +11,7 @@ class LRETemporalDataWrapper(TemporalDataWrapper):
 
         self._lre_val_proportion = lre_val_proportion
 
-    def get_lre_val_data(self):
+    def get_val_data_lre(self):
         random_state = np.random.get_state()
         np.random.seed(1)
 
@@ -22,7 +22,7 @@ class LRETemporalDataWrapper(TemporalDataWrapper):
 
         return x_val_lre, y_val_lre
 
-    def get_regular_val_data(self):
+    def get_val_data_regular(self):
         random_state = np.random.get_state()
         np.random.seed(1)
 
@@ -40,7 +40,7 @@ class LREStaticDataWrapper(StaticDataWrapper):
 
         self._lre_val_proportion = lre_val_proportion
 
-    def get_lre_val_data(self):
+    def get_val_data_lre(self):
         random_state = np.random.get_state()
         np.random.seed(1)
 
@@ -51,7 +51,7 @@ class LREStaticDataWrapper(StaticDataWrapper):
 
         return x_val_lre, y_val_lre
 
-    def get_regular_val_data(self):
+    def get_val_data_regular(self):
         random_state = np.random.get_state()
         np.random.seed(1)
 

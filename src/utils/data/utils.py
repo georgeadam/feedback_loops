@@ -68,7 +68,7 @@ def get_data_wrapper_fn(args):
                                     uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_lre":
             constructor = LRETemporalDataWrapper
-            return wrap_constructor(constructor, lre_val_proportion=args.optim.lre_val_proportion,
+            return wrap_constructor(constructor, lre_val_proportion=args.optim.lre.val_proportion,
                                     include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
@@ -85,7 +85,7 @@ def get_data_wrapper_fn(args):
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_lre":
             constructor = LREStaticDataWrapper
-            return wrap_constructor(constructor, lre_val_proportion=args.optim.lre_val_proportion,
+            return wrap_constructor(constructor, lre_val_proportion=args.optim.lre.val_proportion,
                                     include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)

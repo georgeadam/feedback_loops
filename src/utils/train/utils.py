@@ -1,4 +1,4 @@
-from .nn import RegularNNTrainer, AUMNNTrainer
+from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -19,13 +19,10 @@ def get_trainer(args):
         return wrapped(TraditionalMLTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular":
         return wrapped(RegularNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
-                       optimizer=args.optim.optimizer, lr=args.optim.lr, momentum=args.optim.momentum,
-                       nesterov=args.optim.nesterov, epochs=args.optim.epochs,
-                       early_stopping_iter=args.optim.early_stopping_iter, weight_decay=args.optim.weight_decay,
-                       device=args.optim.device)
+                       optim_args=args.optim)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_aum":
         return wrapped(AUMNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
-                       optimizer=args.optim.optimizer, lr=args.optim.lr, momentum=args.optim.momentum,
-                       nesterov=args.optim.nesterov, epochs=args.optim.epochs,
-                       early_stopping_iter=args.optim.early_stopping_iter, weight_decay=args.optim.weight_decay,
-                       device=args.optim.device)
+                       optim_args=args.optim)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_lre":
+        return wrapped(LRENNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       regular_optim_args=args.optim.regular, lre_optim_args=args.optim.lre)

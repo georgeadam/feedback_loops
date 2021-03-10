@@ -47,9 +47,10 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(linear_svm, args.use_cv, args.cv, warm_start=args.warm_start, class_weight=args.class_weight)
     elif args.model.type == "nn":
         return wrapped(NN, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
-                       device=args.optim.device)
-    elif args.model.type == "nn_meta":
-        return wrapped(NN_LRE, None, None, hidden_layer=args.hidden_layers, activation=args.activation)
+                       device=args.model.device)
+    elif args.model.type == "nn_lre":
+        return wrapped(NN_LRE, None, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
+                       device=args.model.device)
     elif args.model.type == "svm_rbf":
         return wrapped(rbf_svm, args.use_cv, args.cv)
     elif args.model.type == "rf":
