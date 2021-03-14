@@ -1,4 +1,4 @@
-from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer
+from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, DataShapleyNNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -26,3 +26,7 @@ def get_trainer(args):
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_lre":
         return wrapped(LRENNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        regular_optim_args=args.optim.regular, lre_optim_args=args.optim.lre)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_shapley":
+        return wrapped(DataShapleyNNTrainer, warm_start=args.update_params.warm_start,
+                       update=args.update_params.do_update, regular_optim_args=args.optim.regular,
+                       shapley_optim_args=args.optim.shapley)
