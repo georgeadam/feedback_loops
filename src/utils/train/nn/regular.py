@@ -27,7 +27,12 @@ class RegularNNTrainer:
         self._weight_decay = optim_args.weight_decay
 
         self._optimizer = None
-        self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
+        self._write = optim_args.log_tensorboard
+
+        if self._write:
+            self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
+        else:
+            self._writer = None
 
     def initial_fit(self, model, data_wrapper, scaler):
         self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
@@ -39,9 +44,12 @@ class RegularNNTrainer:
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
         train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
-                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0")
+                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+        if not self._update:
+            return model
+
         if not self._warm_start:
             model = self._model_fn(data_wrapper.dimension).to(model.device)
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
@@ -54,7 +62,7 @@ class RegularNNTrainer:
 
         model = train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
-                                 "train_loss/{}".format(update_num))
+                                 "train_loss/{}".format(update_num), self._write)
 
         return model
 

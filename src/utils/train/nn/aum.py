@@ -28,9 +28,13 @@ class AUMNNTrainer:
         self._weight_decay = optim_args.weight_decay
 
         self._optimizer = None
-        self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
         self._writer_prefix = "{type}/{update_num}/{name}"
-        self._write = True
+        self._write = optim_args.log_tensorboard
+
+        if self._write:
+            self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
+        else:
+            self._writer = None
 
     def initial_fit(self, model, data_wrapper, scaler):
         self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
@@ -46,6 +50,9 @@ class AUMNNTrainer:
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+        if not self._update:
+            return model
+
         if not self._warm_start:
             model = self._model_fn(data_wrapper.dimension).to(model.device)
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,

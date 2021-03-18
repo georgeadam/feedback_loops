@@ -36,9 +36,13 @@ class LRENNTrainer:
         self._weight_decay_lre = lre_optim_args.weight_decay
 
         self._optimizer_lre = None
-        self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
         self._writer_prefix = "{type}/{update_num}/{name}"
-        self._write = True
+        self._write = regular_optim_args.log_tensorboard
+
+        if self._write:
+            self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
+        else:
+            self._writer = None
 
     def initial_fit(self, model, data_wrapper, scaler):
         optimizer = create_optimizer(model.params(), self._optimizer_name_regular,
@@ -52,9 +56,12 @@ class LRENNTrainer:
 
         train_regular_nn(model, optimizer, x_train, y_train, x_val, y_val,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
-                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
+                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+        if not self._update:
+            return model
+
         if not self._warm_start:
             model = self._model_fn(data_wrapper.dimension).to(model.device)
             self._optimizer_lre = create_optimizer(model.params(), self._optimizer_name_lre,
@@ -69,19 +76,19 @@ class LRENNTrainer:
         x_val_lre, y_val_lre = data_wrapper.get_val_data_lre()
         x_val_reg, y_val_reg = data_wrapper.get_val_data_regular()
 
-        x_train, x_val_lre, x_val_regular = scaler.transform(x_train), \
+        x_train, x_val_lre, x_val_reg = scaler.transform(x_train), \
                                             scaler.transform(x_val_lre), \
                                             scaler.transform(x_val_reg)
 
         train_lre(model, self._model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, self._optimizer_lre,
                   self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre,
-                  self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=update_num)))
+                  self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=update_num)), self._write)
 
         return model
 
 
 def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, optimizer,
-              lr, epochs, early_stopping_iter, writer, writer_prefix):
+              lr, epochs, early_stopping_iter, writer, writer_prefix, write):
     meta_losses_clean = []
     net_losses = []
     best_train_loss = float("inf")
@@ -105,6 +112,8 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
 
     x_val_reg = torch.from_numpy(x_val_reg).float().to(model.device)
     y_val_reg = torch.from_numpy(y_val_reg).long().to(model.device)
+
+    w = None
 
     while not done:
         model.train()
@@ -200,7 +209,8 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
         if epoch > epochs:
             break
 
-        log_lre_losses(writer, writer_prefix, unweighted_loss.item(), val_loss.item(), l_g_meta.item(), epoch)
+        if write:
+            log_lre_losses(writer, writer_prefix, unweighted_loss.item(), val_loss.item(), l_g_meta.item(), epoch)
 
         epoch += 1
 

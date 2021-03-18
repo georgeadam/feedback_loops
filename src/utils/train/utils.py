@@ -1,4 +1,4 @@
-from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, DataShapleyNNTrainer
+from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, DataShapleyNNTrainer, PosPredNNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -30,3 +30,6 @@ def get_trainer(args):
         return wrapped(DataShapleyNNTrainer, warm_start=args.update_params.warm_start,
                        update=args.update_params.do_update, regular_optim_args=args.optim.regular,
                        shapley_optim_args=args.optim.shapley)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_pos_pred":
+        return wrapped(PosPredNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)

@@ -65,44 +65,54 @@ def get_data_wrapper_fn(args):
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = TemporalDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train,
-                                    ddp=args.data.ddp, ddr=args.data.ddr, tvp=args.data.tvp,
+                                    ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
                                     agg_data=args.update_params.agg_data, tyl=args.data.tyl,
                                     uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_lre":
             constructor = LRETemporalDataWrapper
             return wrap_constructor(constructor, lre_val_proportion=args.optim.lre.val_proportion,
                                     include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_aum":
             constructor = AUMTemporalDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_shapley":
             constructor = DataShapleyTemporalDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
+        elif args.optim.type == "nn_pos_pred":
+            constructor = TemporalDataWrapper
+            return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
     else:
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = StaticDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_lre":
             constructor = LREStaticDataWrapper
             return wrap_constructor(constructor, lre_val_proportion=args.optim.lre.val_proportion,
                                     include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_aum":
             constructor = AUMStaticDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_shapley":
             constructor = DataShapleyStaticDataWrapper
             return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
-                                    ddr=args.data.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    num_updates=args.data.num_updates)
+        elif args.optim.type == "nn_pos_pred":
+            constructor = DataShapleyStaticDataWrapper
+            return wrap_constructor(constructor, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
