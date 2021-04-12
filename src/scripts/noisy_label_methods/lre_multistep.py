@@ -18,13 +18,13 @@ from settings import ROOT_DIR
 
 from src.utils.optimizer import create_optimizer
 from src.utils.rand import set_seed
-from src.utils.data import UpdateDataWrapper
+from src.utils.data import StaticUpdateDataGenerator
 from src.utils.save import CSV_FILE
 from src.utils.str_formatting import SafeDict
 
-from src.models.lre import NN_Meta
-from src.scripts.helpers.generic.train import load_data, train_regular, train_lre, eval_model, create_corrupted_labels
-
+from src.models.lre import NN_LRE
+from src.scripts.helpers.generic.train import load_data, eval_model, create_corrupted_labels
+from src.utils.train import train_regular, train_lre
 
 os.chdir(ROOT_DIR)
 config_path = os.path.join(ROOT_DIR, "configs/lre_multistep.yaml")
@@ -32,7 +32,7 @@ config_path = os.path.join(ROOT_DIR, "configs/lre_multistep.yaml")
 
 def update_loop(data, data_args, model_args, optim_args, train_fn, seed, writer, writer_prefix, corrupt=False):
     set_seed(seed)
-    model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
+    model = NN_LRE(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
     optimizer = create_optimizer(model.params(), optim_args.regular.optimizer, optim_args.regular.lr,
                                  optim_args.regular.momentum, optim_args.regular.nesterov,
                                  optim_args.regular.weight_decay)
@@ -53,7 +53,7 @@ def update_loop(data, data_args, model_args, optim_args, train_fn, seed, writer,
     x_update = copy.deepcopy(data["x_update"])
     y_update = copy.deepcopy(data["y_update"])
 
-    update_wrapper = UpdateDataWrapper(x_update, y_update, data_args.num_updates)
+    update_wrapper = StaticUpdateDataGenerator(x_update, y_update, data_args.num_updates)
     x_cumulative = data["x_train"]
     y_cumulative_corrupt = data["y_train"]
     y_cumulative_clean = data["y_train"]
@@ -73,7 +73,7 @@ def update_loop(data, data_args, model_args, optim_args, train_fn, seed, writer,
         set_seed(seed)
 
         if optim_args.lre.from_scratch:
-            model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
+            model = NN_LRE(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
 
         if train_fn is train_regular:
             optimizer = create_optimizer(model.params(), optim_args.regular.optimizer, optim_args.regular.lr,

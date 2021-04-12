@@ -1,0 +1,21 @@
+type: nn_lre_val_set_size
+regular:
+  lr: 0.1
+  momentum: 0.0
+  nesterov: False
+  optimizer: SGD
+  weight_decay: 0.0
+  epochs: 2500
+  early_stopping_iter: 20
+  log_tensorboard: False
+lre:
+  lr: 0.01
+  momentum: 0.0
+  nesterov: False
+  optimizer: SGD
+  weight_decay: 0.0
+  epochs: 2500
+  early_stopping_iter: 20
+  n_val_reg: 10
+  n_val_lre: 10
+  incremental: False

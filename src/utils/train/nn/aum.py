@@ -62,9 +62,9 @@ class AUMNNTrainer:
         auxiliary_optimizer = create_optimizer(auxiliary_model.parameters(), self._optimizer_name, self._lr,
                                                self._momentum, self._nesterov, self._weight_decay)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
-        x_update, y_update = data_wrapper.get_current_update_batch()
+        x_update, y_update = data_wrapper.get_current_update_batch_corrupt()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
@@ -89,9 +89,9 @@ class AUMNNTrainer:
         good_indices = np.setdiff1d(good_indices, bad_indices)
 
         x_update, y_update = x_update[good_indices], y_update[good_indices]
-        data_wrapper.store_current_update_batch(x_update, y_update)
+        data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_train = scaler.transform(x_train)
 
         model = train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,

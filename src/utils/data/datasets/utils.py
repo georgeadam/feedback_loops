@@ -2,7 +2,7 @@ import copy
 import numpy as np
 
 
-STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2"]
+STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2", "sklearn_noisy_update", "moons_noisy_update"]
 TEMPORAL_DATA_TYPES = ["mimic_iv", "mimic_iv_12h", "mimic_iv_24h"]
 
 

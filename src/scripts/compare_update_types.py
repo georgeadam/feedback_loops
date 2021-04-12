@@ -1,8 +1,5 @@
 import hydra
 import os
-import seaborn as sns
-
-sns.set_style("white")
 
 from src.scripts.helpers.generic.loops import call_update_loop
 from src.scripts.helpers.updates.result_formatting import get_result_formatting_fn
@@ -16,8 +13,8 @@ from omegaconf import DictConfig
 from settings import ROOT_DIR
 
 os.chdir(ROOT_DIR)
-config_path = os.path.join(ROOT_DIR, "configs/update_types.yaml")
-@hydra.main(config_path=config_path)
+config_path = os.path.join(ROOT_DIR, "configs")
+@hydra.main(config_path=config_path, config_name="update_types")
 def main(args: DictConfig):
     print(args.pretty())
     print("Saving to: {}".format(os.getcwd()))

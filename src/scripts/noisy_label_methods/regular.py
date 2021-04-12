@@ -13,10 +13,12 @@ import logging
 from tqdm import tqdm
 import torch.nn.functional as F
 
-from src.scripts.helpers.generic.train import load_data, train_regular, train_lre, eval_model, create_corrupted_labels, compute_loss, log_regular_losses
+from src.scripts.helpers.generic.train import load_data, eval_model, create_corrupted_labels, compute_loss
+from src.utils.train import train_regular, train_lre
+from src.utils.train.nn.utils import log_regular_losses
 
-from src.models.lre import NN_Meta
-from src.utils.data import UpdateDataWrapper
+from src.models.lre import NN_LRE
+from src.utils.data import StaticUpdateDataGenerator
 from src.utils.optimizer import create_optimizer
 from src.utils.save import CSV_FILE
 from src.utils.rand import set_seed
@@ -31,7 +33,7 @@ config_path = os.path.join(ROOT_DIR, "configs/regular.yaml")
 
 def update_loop(data, data_args, model_args, optim_args, seed, corrupt=False):
     set_seed(seed)
-    model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
+    model = NN_LRE(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
     optimizer = create_optimizer(model.params(), optim_args.optimizer, optim_args.lr,
                                  optim_args.momentum, optim_args.nesterov,
                                  optim_args.weight_decay)
@@ -61,7 +63,7 @@ def update_loop(data, data_args, model_args, optim_args, seed, corrupt=False):
     x_update = copy.deepcopy(data["x_update"])
     y_update = copy.deepcopy(data["y_update"])
 
-    update_wrapper = UpdateDataWrapper(x_update, y_update, data_args.num_updates)
+    update_wrapper = StaticUpdateDataGenerator(x_update, y_update, data_args.num_updates)
     cumulative_rates = {key: [initial_rates[key]] for key in initial_rates.keys()}
 
     for update_num, (x_update_partial, y_update_partial) in enumerate(update_wrapper, start=1):
@@ -78,7 +80,7 @@ def update_loop(data, data_args, model_args, optim_args, seed, corrupt=False):
         set_seed(seed)
 
         if optim_args.from_scratch:
-            model = NN_Meta(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
+            model = NN_LRE(data["x_train"].shape[1], 2, model_args.hidden_layers, model_args.activation, model_args.device)
 
         optimizer = create_optimizer(model.params(), optim_args.optimizer, optim_args.lr,
                                      optim_args.momentum, optim_args.nesterov,

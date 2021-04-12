@@ -1,0 +1,6 @@
+agg_data: False
+feedback: False
+include_train: False
+do_update: False
+warm_start: False
+type: static

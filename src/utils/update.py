@@ -219,7 +219,8 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
         y_update = replace_labels(feedback, model, x_update, y_update, threshold, trust_fn,
                                   clinician_fpr, clinician_trust, model_fpr, scaler)
 
-        data_wrapper.store_current_update_batch(x_update, y_update)
+        data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
+        data_wrapper.store_current_update_batch_clean(x_update, y_update_unmodified)
         # y_update = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
         # No longer interested in effect of flipping labels
 

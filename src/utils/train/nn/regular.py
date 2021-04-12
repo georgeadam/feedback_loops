@@ -55,7 +55,7 @@ class RegularNNTrainer:
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)

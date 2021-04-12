@@ -1,0 +1,4 @@
+clinician_fprs: [ 0.0 ]
+clinician_fpr: null # Used as a placeholder that gets overwritten
+clinician_trust: 1.0
+model_rates: [ 0.2 ]

@@ -11,13 +11,13 @@ class TraditionalMLTrainer:
 
         model.fit(scaler.transform(x_train), y_train)
 
-    def update_fit(self, model, data_wrapper, scaler, *args, **kwargs):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, *args, **kwargs):
         if not self._update:
-            return
+            return model
 
         x, y = data_wrapper.get_all_data_for_model_fit()
 
-        if self._warm_start:
+        if self._warm_start and hasattr(model, "partial_fit"):
             model.partial_fit(scaler.transform(x), y, classes=[0, 1])
         else:
             model = self._model_fn(data_wrapper.dimension)

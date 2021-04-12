@@ -20,7 +20,7 @@ def main(args):
     print("Saving to: {}".format(os.getcwd()))
 
     data_fn = get_data_fn(args.data, args.model)
-    model_fn = get_model_fn(args.model)
+    model_fn = get_model_fn(args)
     result_formatting_fn = get_result_formatting_fn(args.data.temporal, "constant")
 
     rates = {}

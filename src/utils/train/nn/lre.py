@@ -1,12 +1,15 @@
 import copy
+import itertools
 import logging
 
+import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.str_formatting import SafeDict
 from src.utils.optimizer import create_optimizer
+from src.utils.data.wrappers.generic import DataMiniBatcher
 from src.utils.train.nn.utils import compute_loss
 from src.utils.train.nn.regular import train_regular_nn
 
@@ -34,10 +37,12 @@ class LRENNTrainer:
         self._momentum_lre = lre_optim_args.momentum
         self._nesterov_lre = lre_optim_args.nesterov
         self._weight_decay_lre = lre_optim_args.weight_decay
+        self._incremental = lre_optim_args.incremental
 
         self._optimizer_lre = None
         self._writer_prefix = "{type}/{update_num}/{name}"
         self._write = regular_optim_args.log_tensorboard
+        self._seed = seed
 
         if self._write:
             self._writer = SummaryWriter("tensorboard_logs/{}".format(seed))
@@ -48,15 +53,28 @@ class LRENNTrainer:
         optimizer = create_optimizer(model.params(), self._optimizer_name_regular,
                                            self._lr_regular, self._momentum_regular,
                                            self._nesterov_regular, self._weight_decay_regular)
+        # optimizer = create_optimizer(model.params(), self._optimizer_name_lre,
+        #                                            self._lr_lre, self._momentum_lre,
+        #                                            self._nesterov_lre, self._weight_decay_lre)
 
         x_train, y_train = data_wrapper.get_init_train_data()
-        x_val, y_val = data_wrapper.get_validation_data()
+        # x_val, y_val = data_wrapper.get_validation_data()
+        #
+        # x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
+        x_val_lre, y_val_lre = data_wrapper.get_val_data_lre()
+        x_val_reg, y_val_reg = data_wrapper.get_val_data_regular()
 
-        train_regular_nn(model, optimizer, x_train, y_train, x_val, y_val,
+        x_train, x_val_lre, x_val_reg = scaler.transform(x_train), \
+                                            scaler.transform(x_val_lre), \
+                                            scaler.transform(x_val_reg)
+
+        train_regular_nn(model, optimizer, x_train, y_train, x_val_reg, y_val_reg,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
+        # train_lre(model, self._model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, data_wrapper._batch_size, optimizer,
+        #           self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre, self._incremental,
+        #           self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=0)), self._write, 0, self._seed)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._update:
@@ -72,25 +90,30 @@ class LRENNTrainer:
                                                    self._lr_lre, self._momentum_lre,
                                                    self._nesterov_lre, self._weight_decay_lre)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train_corrupt, y_train_corrupt = data_wrapper.get_all_data_for_model_fit_corrupt()
+        x_train_clean, y_train_clean = data_wrapper.get_all_data_for_model_fit_clean()
+        flipped_indices = np.where(y_train_corrupt != y_train_clean)[0]
+
+        # with open("flipped_indices_{}_{}.npy".format(self._seed, update_num), "wb") as f:
+        #     np.save(f, flipped_indices)
+
         x_val_lre, y_val_lre = data_wrapper.get_val_data_lre()
         x_val_reg, y_val_reg = data_wrapper.get_val_data_regular()
 
-        x_train, x_val_lre, x_val_reg = scaler.transform(x_train), \
+        x_train_corrupt, x_val_lre, x_val_reg = scaler.transform(x_train_corrupt), \
                                             scaler.transform(x_val_lre), \
                                             scaler.transform(x_val_reg)
 
-        train_lre(model, self._model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, self._optimizer_lre,
-                  self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre,
-                  self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=update_num)), self._write)
+        train_lre(model, self._model_fn, x_train_corrupt, y_train_corrupt, x_val_reg, y_val_reg, x_val_lre, y_val_lre, data_wrapper._batch_size, self._optimizer_lre,
+                  self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre, self._incremental,
+                  self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=update_num)), self._write,
+                  update_num, self._seed)
 
         return model
 
 
-def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, optimizer,
-              lr, epochs, early_stopping_iter, writer, writer_prefix, write):
-    meta_losses_clean = []
-    net_losses = []
+def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, batch_size, optimizer,
+              lr, epochs, early_stopping_iter, incremental, writer, writer_prefix, write, update_num, seed):
     best_train_loss = float("inf")
     best_val_loss = float("inf")
     best_epoch = 0
@@ -98,9 +121,6 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
     no_val_improvement = 0
     no_train_improvement = 0
 
-    smoothing_alpha = 0.9
-    meta_l = 0
-    net_l = 0
     done = False
     epoch = 0
 
@@ -113,64 +133,88 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
     x_val_reg = torch.from_numpy(x_val_reg).float().to(model.device)
     y_val_reg = torch.from_numpy(y_val_reg).long().to(model.device)
 
-    w = None
+    train_data_loader = DataMiniBatcher(x_train, y_train, batch_size)
+    val_lre_data_loader = DataMiniBatcher(x_val_lre, y_val_lre, batch_size)
 
+    if len(x_train) < len(x_val_lre):
+        train_data_loader = itertools.cycle(train_data_loader)
+    else:
+        val_lre_data_loader = itertools.cycle(val_lre_data_loader)
+
+    w_history = []
     while not done:
-        model.train()
-        # Line 2 get batch of data
-        # since validation data is small I just fixed them instead of building an iterator
-        # initialize a dummy network for the meta learning of the weights
-        meta_model = model_fn(x_train.shape[1]).to(model.device)
-        meta_model.load_state_dict(model.state_dict())
-        meta_model = meta_model.to(x_train.device)
+        weighted_train_losses = []
+        unweighted_train_losses = []
+        meta_losses = []
+        w = None
 
-        # Lines 4 - 5 initial forward pass to compute the initial weighted loss
-        y_f_hat = meta_model(x_train)
-        cost = F.cross_entropy(y_f_hat, y_train, reduce=False)
-        eps = torch.zeros(cost.size()).to(x_train.device).requires_grad_(True)
+        for (x_train, y_train), (x_val_lre, y_val_lre) in zip(train_data_loader, val_lre_data_loader):
+            model.train()
+            # Line 2 get batch of data
+            # since validation data is small I just fixed them instead of building an iterator
+            # initialize a dummy network for the meta learning of the weights
+            meta_model = model_fn(x_train.shape[1]).to(model.device)
+            meta_model.load_state_dict(model.state_dict())
+            meta_model = meta_model.to(x_train.device)
 
-        l_f_meta = torch.sum(cost * eps)
+            # Lines 4 - 5 initial forward pass to compute the initial weighted loss
+            y_f_hat = meta_model(x_train)
+            cost = F.cross_entropy(y_f_hat, y_train, reduce=False)
+            eps = torch.zeros(cost.size()).to(x_train.device).requires_grad_(True)
 
-        meta_model.zero_grad()
+            l_f_meta = torch.sum(cost * eps)
 
-        # Line 6 perform a parameter update
-        grads = torch.autograd.grad(l_f_meta, (meta_model.params()), create_graph=True)
-        meta_model.update_params(lr, source_params=grads)
+            meta_model.zero_grad()
 
-        # Line 8 - 10 2nd forward pass and getting the gradients with respect to epsilon
-        y_g_hat = meta_model(x_val_lre)
+            # Line 6 perform a parameter update
+            grads = torch.autograd.grad(l_f_meta, (meta_model.params()), create_graph=True)
+            meta_model.update_params(lr, source_params=grads)
 
-        l_g_meta = F.cross_entropy(y_g_hat, y_val_lre)
+            # Line 8 - 10 2nd forward pass and getting the gradients with respect to epsilon
+            y_g_hat = meta_model(x_val_lre)
 
-        grad_eps = torch.autograd.grad(l_g_meta, eps, only_inputs=True)[0]
+            l_g_meta = F.cross_entropy(y_g_hat, y_val_lre)
 
-        # Line 11 computing and normalizing the weights
-        w_tilde = torch.clamp(-grad_eps, min=0)
-        norm_c = torch.sum(w_tilde)
+            grad_eps = torch.autograd.grad(l_g_meta, eps, only_inputs=True)[0]
 
-        if norm_c != 0:
-            w = w_tilde / norm_c
-        else:
-            w = w_tilde
+            # Line 11 computing and normalizing the weights
+            w_tilde = torch.clamp(-grad_eps, min=0)
+            norm_c = torch.sum(w_tilde)
 
-        # Lines 12 - 14 computing for the loss with the computed weights
-        # and then perform a parameter update
-        y_f_hat = model(x_train)
-        cost = F.cross_entropy(y_f_hat, y_train, reduce=False)
-        l_f = torch.sum(cost * w)
+            if incremental:
+                if w is not None:
+                    w_tilde = w_tilde / norm_c
+                    w = 0.9 * w + 0.1 * w_tilde
+                else:
+                    w = w_tilde / norm_c
+            else:
+                if norm_c != 0:
+                    w = w_tilde / norm_c
+                else:
+                    w = w_tilde
 
-        optimizer.zero_grad()
-        l_f.backward()
-        optimizer.step()
+            w_history.append(w.detach().cpu().numpy())
 
-        with torch.no_grad():
-            unweighted_loss = F.cross_entropy(y_f_hat, y_train)
+            # Lines 12 - 14 computing for the loss with the computed weights
+            # and then perform a parameter update
+            y_f_hat = model(x_train)
+            cost = F.cross_entropy(y_f_hat, y_train, reduce=False)
+            l_f = torch.sum(cost * w)
 
-        meta_l = smoothing_alpha * meta_l + (1 - smoothing_alpha) * l_g_meta.item()
-        meta_losses_clean.append(meta_l / (1 - smoothing_alpha ** (epoch + 1)))
+            optimizer.zero_grad()
+            l_f.backward()
+            optimizer.step()
 
-        net_l = smoothing_alpha * net_l + (1 - smoothing_alpha) * l_f.item()
-        net_losses.append(net_l / (1 - smoothing_alpha ** (epoch + 1)))
+            with torch.no_grad():
+                unweighted_loss = F.cross_entropy(y_f_hat, y_train)
+
+            unweighted_train_losses.append(unweighted_loss.item())
+            weighted_train_losses.append(l_f.detach().item())
+            meta_losses.append(l_g_meta.detach().item())
+
+        unweighted_train_loss = np.mean(np.array(unweighted_train_losses))
+        weighted_train_loss = np.mean(np.array(weighted_train_losses))
+        meta_loss = np.mean(np.array(meta_losses))
 
         with torch.no_grad():
             val_loss = compute_loss(model, x_val_reg, y_val_reg, F.cross_entropy)
@@ -184,7 +228,7 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
         else:
             no_val_improvement += 1
 
-        if unweighted_loss < best_train_loss:
+        if unweighted_train_loss < best_train_loss:
             no_train_improvement = 0
         elif no_val_improvement > 0:
             no_train_improvement += 1
@@ -201,29 +245,30 @@ def train_lre(model, model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Weighted Train Loss: {} | Unweighted Train Loss: {} | LRE Val Loss: {} | Reg Val Loss: {}".format(epoch,
-                                                                                                                                       l_f.item(),
-                                                                                                                                       unweighted_loss.item(),
-                                                                                                                                       l_g_meta.item(),
+                                                                                                                                       weighted_train_loss,
+                                                                                                                                       unweighted_train_loss,
+                                                                                                                                       meta_loss,
                                                                                                                                        val_loss.item()))
 
         if epoch > epochs:
             break
 
         if write:
-            log_lre_losses(writer, writer_prefix, unweighted_loss.item(), val_loss.item(), l_g_meta.item(), epoch)
+            log_lre_losses(writer, writer_prefix, unweighted_train_loss, val_loss.item(), meta_loss, epoch)
 
         epoch += 1
+
+    # with open("sample_weights_{}_{}.npy".format(seed, update_num), "wb") as f:
+    #     np.save(f, np.array(w_history))
 
     model.load_state_dict(best_params)
     logger.info("Best Train Loss: {} | Best LRE Val Loss: {} | Best Reg Val Loss Achieved: {} at epoch: {}".format(best_train_loss.item(),
                                                                                                                    best_val_loss.item(),
-                                                                                                                   l_g_meta.item(),
+                                                                                                                   meta_loss,
                                                                                                                    best_epoch))
 
     if not done:
         logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(epochs))
-
-    return meta_losses_clean, net_losses, w
 
 
 def log_lre_losses(writer, writer_prefix, train_loss, val_loss_reg, val_loss_lre, epoch):

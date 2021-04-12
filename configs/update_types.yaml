@@ -4,6 +4,9 @@ defaults:
   - misc: default
   - model: xgboost
   - rates: default
+  - trust: default
+  - optim: lr
+  - update_params: feedback_full_fit
 hydra:
   run:
     dir: results/temp/${now:%Y-%m-%d-%H-%M-%S}/

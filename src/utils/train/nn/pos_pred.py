@@ -51,7 +51,7 @@ class PosPredNNTrainer:
         if not self._update:
             return model
 
-        x_update, y_update = data_wrapper.get_current_update_batch()
+        x_update, y_update = data_wrapper.get_current_update_batch_corrupt()
 
         with torch.no_grad():
             out = model(scaler.transform(x_update))
@@ -59,9 +59,9 @@ class PosPredNNTrainer:
 
         pos_indices = (pred == 1)
         x_update, y_update = x_update[pos_indices], y_update[pos_indices]
-        data_wrapper.store_current_update_batch(x_update, y_update)
+        data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 

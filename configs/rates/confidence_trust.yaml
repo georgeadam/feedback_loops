@@ -4,8 +4,4 @@ idv: null # Used as a placeholder that gets overwritten
 tvp: 0.2 # Threshold validation percentage
 ddr: fpr # Dynamic desired rate
 ddp: all # Dynamic desired partition
-clinician_fprs: [ 0.0 ]
-clinician_fpr: null # Used as a placeholder that gets overwritten
-clinician_trust: 1.0
-model_rates: [ 0.2 ]
 train_lambda: 1.0

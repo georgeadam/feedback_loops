@@ -1,0 +1,6 @@
+agg_data: True
+feedback: False
+include_train: False
+do_update: True
+warm_start: False
+type: no_feedback_all_update_data_refit

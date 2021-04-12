@@ -1,0 +1,20 @@
+type: nn_mc_shapley
+regular:
+  lr: 0.1
+  momentum: 0.0
+  nesterov: False
+  optimizer: SGD
+  weight_decay: 0.0
+  epochs: 2500
+  early_stopping_iter: 20
+  log_tensorboard: False
+  n_val: 10
+shapley:
+  lr: 0.1
+  momentum: 0.0
+  nesterov: False
+  optimizer: SGD
+  weight_decay: 0.0
+  epochs: 2500
+  early_stopping_iter: 20
+  runs: 10
