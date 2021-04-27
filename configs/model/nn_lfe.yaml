@@ -1,0 +1,4 @@
+type: nn_lfe
+hidden_layers: 4
+activation: "ReLU"
+device: "cpu"

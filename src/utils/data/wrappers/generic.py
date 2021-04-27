@@ -344,6 +344,9 @@ class StaticDataWrapper(DataWrapper):
         self._x_train = data["x_train"]
         self._y_train = data["y_train"]
 
+        if "y_train_clean" in data.keys():
+            self._y_train_clean = data["y_train_clean"]
+
         self._x_val = data["x_val"]
         self._y_val = data["y_val"]
 

@@ -4,6 +4,7 @@ from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest,
 from src.models.pytorch import NNEWC
 from src.models.nn import NN
 from src.models.lre import NN_LRE
+from src.models.lfe import NN_LFE
 
 from omegaconf import DictConfig, OmegaConf
 from typing import Any, Callable
@@ -11,7 +12,7 @@ from src.utils.typing import Model
 
 
 TRADITIONAL_ML_MODEL_TYPES = ["linear_svm", "lr", "adaboost", "random_forest", "rbf_svm", "xgboost", "rf"]
-NN_MODEL_TYPES = ["nn", "nn_lre"]
+NN_MODEL_TYPES = ["nn", "nn_lre", "nn_lfe"]
 
 # def wrapped(fn: Callable[[Any], Model], **kwargs: Any) -> Callable:
 #     def inside(num_features: int) -> Model:
@@ -50,6 +51,9 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
                        device=args.model.device)
     elif args.model.type == "nn_lre":
         return wrapped(NN_LRE, None, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
+                       device=args.model.device)
+    elif args.model.type == "nn_lfe":
+        return wrapped(NN_LFE, None, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
     elif args.model.type == "svm_rbf":
         return wrapped(rbf_svm, args.optim.use_cv, args.optim.cv)

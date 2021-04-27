@@ -15,6 +15,8 @@ from .wrappers import LREStaticDataWrapper
 from .wrappers import LREValidationSizeTesting
 from .wrappers import LRETrainDataAsValidationStatic
 from .wrappers import LRETrainDataAsValidationTemporal
+from .wrappers import LFEStaticDataWrapper
+from .wrappers import LFETemporalDataWrapper
 from .wrappers import AUMStaticDataWrapper
 from .wrappers import AUMTemporalDataWrapper
 from .wrappers import DataShapleyStaticDataWrapper
@@ -85,6 +87,12 @@ def get_data_wrapper_fn(args):
                                     ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
                                     agg_data=args.update_params.agg_data, tyl=args.data.tyl,
                                     uyl=args.data.uyl, next_year=args.data.next_year)
+        elif args.optim.type == "nn_lfe":
+            constructor = LFETemporalDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, lfe_val_proportion=args.optim.lfe.val_proportion,
+                                    include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_lre":
             constructor = LRETemporalDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, lre_val_proportion=args.optim.lre.val_proportion,
@@ -116,6 +124,12 @@ def get_data_wrapper_fn(args):
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = StaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    num_updates=args.data.num_updates)
+        elif args.optim.type == "nn_lfe":
+            constructor = LFEStaticDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, lfe_val_proportion=args.optim.lfe.val_proportion,
+                                    include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_lre":

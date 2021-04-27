@@ -15,7 +15,7 @@ class TraditionalMLTrainer:
         if not self._update:
             return model
 
-        x, y = data_wrapper.get_all_data_for_model_fit()
+        x, y = data_wrapper.get_all_data_for_model_fit_corrupt()
 
         if self._warm_start and hasattr(model, "partial_fit"):
             model.partial_fit(scaler.transform(x), y, classes=[0, 1])

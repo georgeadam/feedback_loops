@@ -1,4 +1,5 @@
 from .generic import StaticDataWrapper, TemporalDataWrapper
+from .lfe import LFEStaticDataWrapper, LFETemporalDataWrapper
 from .lre import LREStaticDataWrapper, LRETemporalDataWrapper, LREValidationSizeTesting, LRETrainDataAsValidationStatic, LRETrainDataAsValidationTemporal
 from .aum import AUMStaticDataWrapper, AUMTemporalDataWrapper
 from .data_shapley import DataShapleyStaticDataWrapper, DataShapleyTemporalDataWrapper, MCShapleyDataWrapper, MCShapleyTrainDataAsValidation

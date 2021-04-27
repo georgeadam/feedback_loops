@@ -29,6 +29,7 @@ class LRENNTrainer:
         self._momentum_regular = regular_optim_args.momentum
         self._nesterov_regular = regular_optim_args.nesterov
         self._weight_decay_regular = regular_optim_args.weight_decay
+        self._fit_type_regular = regular_optim_args.fit_type
 
         self._epochs_lre = lre_optim_args.epochs
         self._early_stopping_iter_lre = lre_optim_args.early_stopping_iter
@@ -50,18 +51,17 @@ class LRENNTrainer:
             self._writer = None
 
     def initial_fit(self, model, data_wrapper, scaler):
+        if self._fit_type_regular == "regular":
+            self._regular_fit_init(model, data_wrapper, scaler)
+        else:
+            self._lre_fit_init(model, data_wrapper, scaler)
+
+    def _regular_fit_init(self, model, data_wrapper, scaler):
         optimizer = create_optimizer(model.params(), self._optimizer_name_regular,
-                                           self._lr_regular, self._momentum_regular,
-                                           self._nesterov_regular, self._weight_decay_regular)
-        # optimizer = create_optimizer(model.params(), self._optimizer_name_lre,
-        #                                            self._lr_lre, self._momentum_lre,
-        #                                            self._nesterov_lre, self._weight_decay_lre)
+                                     self._lr_regular, self._momentum_regular,
+                                     self._nesterov_regular, self._weight_decay_regular)
 
         x_train, y_train = data_wrapper.get_init_train_data()
-        # x_val, y_val = data_wrapper.get_validation_data()
-        #
-        # x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
-
         x_val_lre, y_val_lre = data_wrapper.get_val_data_lre()
         x_val_reg, y_val_reg = data_wrapper.get_val_data_regular()
 
@@ -72,9 +72,23 @@ class LRENNTrainer:
         train_regular_nn(model, optimizer, x_train, y_train, x_val_reg, y_val_reg,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
-        # train_lre(model, self._model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, data_wrapper._batch_size, optimizer,
-        #           self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre, self._incremental,
-        #           self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=0)), self._write, 0, self._seed)
+
+    def _lre_fit_init(self, model, data_wrapper, scaler):
+        optimizer = create_optimizer(model.params(), self._optimizer_name_lre,
+                                     self._lr_lre, self._momentum_lre,
+                                     self._nesterov_lre, self._weight_decay_lre)
+
+        x_train, y_train = data_wrapper.get_init_train_data()
+        x_val_lre, y_val_lre = data_wrapper.get_val_data_lre()
+        x_val_reg, y_val_reg = data_wrapper.get_val_data_regular()
+
+        x_train, x_val_lre, x_val_reg = scaler.transform(x_train), \
+                                            scaler.transform(x_val_lre), \
+                                            scaler.transform(x_val_reg)
+
+        train_lre(model, self._model_fn, x_train, y_train, x_val_reg, y_val_reg, x_val_lre, y_val_lre, data_wrapper._batch_size, optimizer,
+                  self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre, self._incremental,
+                  self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=0)), self._write, 0, self._seed)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._update:

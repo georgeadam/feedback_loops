@@ -8,6 +8,7 @@ regular:
   epochs: 2500
   early_stopping_iter: 20
   log_tensorboard: False
+  fit_type: "regular"
 lre:
   lr: 0.01
   momentum: 0.0
