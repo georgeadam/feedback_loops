@@ -19,7 +19,6 @@ def generate_sklearn_make_classification_dataset(noise: float=0.0) -> Callable:
 
         if noise > 0.0:
             y_train_corrupt = corrupt_labels(y_train, noise)
-
             y_val = corrupt_labels(y_val, noise)
         else:
             y_train_corrupt = y_train

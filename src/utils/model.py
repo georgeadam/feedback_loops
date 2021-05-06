@@ -12,7 +12,7 @@ from src.utils.typing import Model
 
 
 TRADITIONAL_ML_MODEL_TYPES = ["linear_svm", "lr", "adaboost", "random_forest", "rbf_svm", "xgboost", "rf"]
-NN_MODEL_TYPES = ["nn", "nn_lre", "nn_lfe"]
+NN_MODEL_TYPES = ["nn", "nn_lre", "nn_lfe", "nn_dro"]
 
 # def wrapped(fn: Callable[[Any], Model], **kwargs: Any) -> Callable:
 #     def inside(num_features: int) -> Model:
@@ -46,7 +46,7 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(lr_online, args.use_cv, args.cv, warm_start=args.warm_start, class_weight=args.class_weight)
     elif args.model.type == "linear_svm":
         return wrapped(linear_svm, args.use_cv, args.cv, warm_start=args.warm_start, class_weight=args.class_weight)
-    elif args.model.type == "nn":
+    elif args.model.type == "nn" or args.model.type == "nn_dro":
         return wrapped(NN, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
     elif args.model.type == "nn_lre":

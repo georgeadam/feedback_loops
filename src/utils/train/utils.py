@@ -1,4 +1,5 @@
-from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, PosPredNNTrainer, MonteCarloShapleyNNTrainer
+from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
+    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -31,6 +32,9 @@ def get_trainer(args):
     elif args.model.type in NN_MODEL_TYPES and (args.optim.type == "nn_lfe"):
         return wrapped(LFENNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        regular_optim_args=args.optim.regular, lfe_optim_args=args.optim.lfe)
+    elif args.model.type in NN_MODEL_TYPES and (args.optim.type == "nn_dro"):
+        return wrapped(DRONNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_gradient_shapley":
         return wrapped(GradientShapleyNNTrainer, warm_start=args.update_params.warm_start,
                        update=args.update_params.do_update, regular_optim_args=args.optim.regular,

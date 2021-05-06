@@ -55,6 +55,8 @@ class LFENNTrainer:
     def _init_label_update_fn(self, label_update_args):
         if label_update_args.type == "y_direct":
             return wrapped(YDirectUpdater, momentum=label_update_args.momentum)
+        elif label_update_args.type == "y_sign":
+            return wrapped(YSignUpdater, momentum=label_update_args.momentum)
         elif label_update_args.type == "y_eps":
             return wrapped(YEpsUpdater, momentum=label_update_args.momentum)
 
@@ -120,13 +122,13 @@ class LFENNTrainer:
         logger.info(y_corrected[idx])
 
         with open("y_train_corrupted{}_{}.npy".format(self._seed, 0), "wb") as f:
-            np.save(f, np.y_train)
+            np.save(f, y_train)
 
         with open("y_train_clean{}_{}.npy".format(self._seed, 0), "wb") as f:
             np.save(f, data_wrapper._y_train_clean)
 
         with open("y_corrected{}_{}.npy".format(self._seed, 0), "wb") as f:
-            np.save(f, y_corrected)
+            np.save(f, y_corrected.detach().cpu().numpy())
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._update:
@@ -333,6 +335,32 @@ class YDirectUpdater():
 
     def update_y(self, loss, y, *args):
         grad_y = torch.autograd.grad(loss, y, only_inputs=True)[0]
+
+        if self.momentum:
+            if self.v is None:
+                self.v = grad_y
+            else:
+                self.v += grad_y
+        else:
+            self.v = grad_y
+
+        with torch.no_grad():
+            updated_y = torch.clamp(y - self.v, 0, 1)
+
+        self.grad_eps = torch.zeros(y.shape).to(y.device)
+
+        return updated_y
+
+
+class YSignUpdater():
+    def __init__(self, momentum, *args, **kwargs):
+        self.momentum = momentum
+        self.v = None
+        self.grad_eps = None
+
+    def update_y(self, loss, y, *args):
+        grad_y = torch.autograd.grad(loss, y, only_inputs=True)[0]
+        grad_y = torch.sign(grad_y) * 0.01
 
         if self.momentum:
             if self.v is None:
