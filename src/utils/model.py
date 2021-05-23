@@ -5,6 +5,7 @@ from src.models.pytorch import NNEWC
 from src.models.nn import NN
 from src.models.lre import NN_LRE
 from src.models.lfe import NN_LFE
+from src.models.q_net import QNet
 
 from omegaconf import DictConfig, OmegaConf
 from typing import Any, Callable
@@ -67,3 +68,6 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(NNEWC, args.use_cv, args.cv, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations,
                        optimizer_name=args.optimizer, reset_optim=args.reset_optim, tol=args.tol,
                        hidden_layers=args.hidden_layers, activation=args.activation, importance=args.importance)
+    elif args.model.type == "q_net":
+        return wrapped(QNet, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
+                       device=args.model.device)

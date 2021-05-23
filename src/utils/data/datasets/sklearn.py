@@ -19,7 +19,7 @@ def generate_sklearn_make_classification_dataset(noise: float=0.0) -> Callable:
 
         if noise > 0.0:
             y_train_corrupt = corrupt_labels(y_train, noise)
-            y_val = corrupt_labels(y_val, noise)
+            # y_val = corrupt_labels(y_val, noise)
         else:
             y_train_corrupt = y_train
 
@@ -44,7 +44,7 @@ def generate_sklearn_make_classification_noisy_update_dataset(noise: float=0.0) 
         if noise > 0.0:
             y_train = corrupt_labels(y_train, noise)
             y_update = corrupt_labels(y_update, noise)
-            y_val = corrupt_labels(y_val, noise)
+            # y_val = corrupt_labels(y_val, noise)
 
         data = {"x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
                 "x_update": x_update, "y_update": y_update, "x_test": x_test, "y_test": y_test}

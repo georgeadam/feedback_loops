@@ -6,6 +6,15 @@ from src.utils.metrics import compute_all_rates
 def find_threshold(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired_value: float,
                    tol: float=0.01) -> float:
     thresholds = np.linspace(0.01, 0.999, 1000)
+
+    if desired_rate != "f1":
+        return binary_search(y, y_prob, desired_rate, desired_value, tol, thresholds)
+    else:
+        return linear_search(y, y_prob, desired_rate, desired_value, tol, thresholds)
+
+
+def binary_search(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired_value: float, tol: float=0.01,
+                  thresholds: np.ndarray=None):
     best_threshold = None
     best_diff = float("inf")
 
@@ -27,7 +36,8 @@ def find_threshold(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired
 
         if abs(rates[desired_rate] - desired_value) <= desired_value * tol:
             return threshold
-        elif (rates[desired_rate] < desired_value and direction == "decreasing") or (rates[desired_rate] > desired_value and direction == "increasing"):
+        elif (rates[desired_rate] < desired_value and direction == "decreasing") or (
+                rates[desired_rate] > desired_value and direction == "increasing"):
             l = mid + 1
         else:
             r = mid - 1
@@ -36,6 +46,25 @@ def find_threshold(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired
             best_diff = abs(rates[desired_rate] - desired_value)
             best_threshold = threshold
 
+    return best_threshold
+
+
+def linear_search(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired_value: float, tol: float=0.01,
+                  thresholds: np.ndarray=None):
+    best_threshold = None
+    best_diff = float("inf")
+
+    for threshold in thresholds:
+        if y_prob.shape[1] > 1:
+            temp_pred = y_prob[:, 1] >= threshold
+        else:
+            temp_pred = y_prob[:, 0] >= threshold
+
+        rates = compute_all_rates(y, temp_pred, y_prob)
+
+        if abs(rates[desired_rate] - desired_value) <= best_diff:
+            best_diff = abs(rates[desired_rate] - desired_value)
+            best_threshold = threshold
 
     return best_threshold
 

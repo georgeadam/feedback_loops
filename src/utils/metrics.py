@@ -108,6 +108,17 @@ def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, ini
     return rates
 
 
+def compute_rl_rates(y: np.ndarray, y_pred: np.ndarray):
+    tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
+    tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), fn / (tp + fn), tp / (tp + fn)
+
+    f1 = f1_score(y, y_pred)
+
+    rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "f1": f1}
+
+    return rates
+
+
 class RateTracker():
     def __init__(self):
         self._rates = {}

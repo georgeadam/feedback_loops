@@ -1,3 +1,4 @@
+from .blobs import generate_blobs_dataset
 from .circles import generate_circles_dataset
 from .gaussian import generate_gaussian_dataset
 from .mimic_iii import load_mimic_iii_data

@@ -1,3 +1,4 @@
+from .datasets import generate_blobs_dataset
 from .datasets import generate_circles_dataset
 from .datasets import generate_gaussian_dataset
 from .datasets import load_mimic_iii_data
@@ -64,6 +65,8 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_moons_noisy_update_dataset(args.data.start, args.data.end, args.data.noise)
     elif args.data.type == "sklearn_noisy_update":
         return generate_sklearn_make_classification_noisy_update_dataset(args.data.noise)
+    elif args.data.type == "blobs":
+        return generate_blobs_dataset(args.data.noise)
 
 
 def wrap_constructor(constructor, **kwargs):
