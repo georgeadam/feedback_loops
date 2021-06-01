@@ -1,0 +1,2 @@
+type: q_learning
+gamma: 0.1

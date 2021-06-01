@@ -1,0 +1,12 @@
+defaults:
+  - agent: epsilon_greedy
+  - algorithm: q_learning
+  - env: basic_icu
+  - data: non_temporal
+  - misc: regular
+  - model: q_net
+  - optim: q_net
+hydra:
+  run:
+    dir: results/rl_formulation/${now:%Y-%m-%d-%H-%M-%S.%f}/
+  output_subdir: .

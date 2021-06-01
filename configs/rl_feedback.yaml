@@ -1,0 +1,13 @@
+defaults:
+  - agent: epsilon_greedy
+  - algorithm: q_learning
+  - env: basic_icu
+  - data: non_temporal
+  - misc: regular
+  - model: q_net
+  - optim: q_net
+  - update_params: feedback_all_data_refit
+hydra:
+  run:
+    dir: results/rl_feedback/${now:%Y-%m-%d-%H-%M-%S.%f}/
+  output_subdir: .

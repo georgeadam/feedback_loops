@@ -7,7 +7,10 @@ n_train: 100
 n_val: 100
 n_update: 1000
 n_test: 1000
-noise: 0.0
+noise:
+  train: 0.0
+  val: 0.0
+  future: 0.0
 next_year: True
 worst_case: False
 # Synthetic data only

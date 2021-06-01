@@ -1,0 +1,9 @@
+icu_limit: 5
+include_icu: True
+r_fn: -0.03
+r_fp: -0.1
+r_tn: 0.01
+r_tp: 0.03
+reward_fn: negative
+alpha: 1.0
+beta: 1.0
