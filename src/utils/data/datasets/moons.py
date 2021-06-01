@@ -75,30 +75,14 @@ def generate_moons_dataset(start: float=0.0, end: float=np.pi, noise: float=0.0)
 
         cols = np.arange(x_train.shape[1])
 
-        if noise > 0.0:
+        if noise.train > 0.0:
             y_train = corrupt_labels(y_train, noise)
 
-        data = {"x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val, "x_update": x_update,
-                "y_update": y_update, "x_test": x_test, "y_test": y_test}
+        if noise.val > 0.0:
+            y_val = corrupt_labels(y_val, noise.val)
 
-        return data, cols
-
-    return wrapped
-
-
-def generate_moons_noisy_update_dataset(start: float=0.0, end: float=np.pi, noise: float=0.0) -> Callable:
-    def wrapped(n_train: int, n_val: int, n_update: int, n_test: int, num_features: int=2) -> Tuple:
-        x_train, y_train = make_moons(n_train, start=0.0, end=np.pi, noise=0.1)
-        x_val, y_val = make_moons(n_val, start=0.0, end=np.pi, noise=0.1)
-        x_update, y_update = make_moons(n_update, start=start, end=end, noise=0.1)
-        x_test, y_test = make_moons(n_test, start=0.0, end=end, noise=0.0)
-
-        cols = np.arange(x_train.shape[1])
-
-        if noise > 0.0:
-            y_train = corrupt_labels(y_train, noise)
-            y_val = corrupt_labels(y_val, noise)
-            y_update = corrupt_labels(y_update, noise)
+        if noise.future > 0.0:
+            y_update = corrupt_labels(y_update, noise.future)
 
         data = {"x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val, "x_update": x_update,
                 "y_update": y_update, "x_test": x_test, "y_test": y_test}

@@ -55,7 +55,7 @@ class DataWrapper:
         if self._tvp > 0:
             _, x_thresh, _, y_thresh = train_test_split(self._x_train, self._y_train, test_size=self._tvp)
         else:
-            x_thresh, y_thresh = self._x_train, self._y_train
+            x_thresh, y_thresh = self._x_val, self._y_val
 
         np.random.set_state(random_state)
 
@@ -117,9 +117,14 @@ class DataWrapper:
             y_update_current = self._y_update_current_clean
 
         if self._include_train:
-            x_threshold_set, x_threshold_reset, \
-            y_threshold_set, y_threshold_reset = train_test_split(self._x_train, self._y_train, stratify=self._y_train,
-                                                                  test_size=self._tvp)
+            if self._tvp > 0:
+                x_threshold_set, x_threshold_reset, \
+                y_threshold_set, y_threshold_reset = train_test_split(self._x_train, self._y_train, stratify=self._y_train,
+                                                                      test_size=self._tvp)
+            else:
+                x_threshold_set, y_threshold_set = self._x_train, self._y_train
+                x_threshold_reset, y_threshold_reset = self._x_val, self._y_val
+
             all_train_x = np.concatenate([x_threshold_set, self._cumulative_x_update, x_update_current])
             all_train_y = np.concatenate([y_threshold_set, self._cumulative_y_update, y_update_current])
             all_thresh_x = x_threshold_reset
@@ -127,8 +132,8 @@ class DataWrapper:
         else:
             all_train_x = np.concatenate([self._cumulative_x_update, x_update_current])
             all_train_y = np.concatenate([self._cumulative_y_update, y_update_current])
-            all_thresh_x = self._x_train
-            all_thresh_y = self._y_train
+            all_thresh_x = self._x_val
+            all_thresh_y = self._y_val
 
         data = {"all_train_x": all_train_x, "all_train_y": all_train_y,
                 "all_thresh_x": all_thresh_x, "all_thresh_y": all_thresh_y}
@@ -152,9 +157,13 @@ class DataWrapper:
         else:
             strat = self._y_update_current_corrupt
 
-        x_threshold_set, x_threshold_reset, \
-        y_threshold_set, y_threshold_reset = train_test_split(x_update_current, y_update_current,
-                                                              stratify=strat, test_size=self._tvp)
+        if self._tvp > 0:
+            x_threshold_set, x_threshold_reset, \
+            y_threshold_set, y_threshold_reset = train_test_split(x_update_current, y_update_current,
+                                                                  stratify=strat, test_size=self._tvp)
+        else:
+            x_threshold_set, y_threshold_set = x_update_current, y_update_current
+            x_threshold_reset, y_threshold_reset = self._x_val, self._y_val
 
         if self._include_train:
             all_train_x = np.concatenate([self._x_train, self._cumulative_x_update, x_threshold_set])
@@ -182,8 +191,12 @@ class DataWrapper:
         temp_x = np.concatenate([self._cumulative_x_update, x_update_current])
         temp_y = np.concatenate([self._cumulative_y_update, y_update_current])
 
-        x_threshold_set, x_threshold_reset, \
-        y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, stratify=temp_y, test_size=self._tvp)
+        if self._tvp > 0:
+            x_threshold_set, x_threshold_reset, \
+            y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, stratify=temp_y, test_size=self._tvp)
+        else:
+            x_threshold_set, y_threshold_set = temp_x, temp_y
+            x_threshold_reset, y_threshold_reset = self._x_val, self._y_val
 
         if self._include_train:
             all_train_x = np.concatenate([self._x_train, x_threshold_set])
@@ -212,10 +225,13 @@ class DataWrapper:
             temp_x = np.concatenate([self._x_train, self._cumulative_x_update, x_update_current])
             temp_y = np.concatenate([self._y_train, self._cumulative_y_update, y_update_current])
 
-            # x_threshold_set, x_threshold_reset, \
-            # y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, stratify=temp_y, test_size=self._tvp)
-            x_threshold_set, x_threshold_reset, \
-            y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, test_size=self._tvp)
+            if self._tvp > 0:
+                x_threshold_set, x_threshold_reset, \
+                y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, test_size=self._tvp)
+            else:
+                x_threshold_set, y_threshold_set = temp_x, temp_y
+                x_threshold_reset, y_threshold_reset = self._x_val, self._y_val
+
             all_train_x = x_threshold_set
             all_train_y = y_threshold_set
             all_thresh_x = x_threshold_reset
@@ -233,10 +249,12 @@ class DataWrapper:
             temp_x = np.concatenate([self._cumulative_x_update, x_update_current])
             temp_y = np.concatenate([self._cumulative_y_update, y_update_current])
 
-            # x_threshold_set, x_threshold_reset, \
-            # y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, stratify=strat, test_size=self._tvp)
-            x_threshold_set, x_threshold_reset, \
-            y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, test_size=self._tvp)
+            if self._tvp > 0:
+                x_threshold_set, x_threshold_reset, \
+                y_threshold_set, y_threshold_reset = train_test_split(temp_x, temp_y, test_size=self._tvp)
+            else:
+                x_threshold_set, y_threshold_set = temp_x, temp_y
+                x_threshold_reset, y_threshold_reset = self._x_val, self._y_val
 
             all_train_x = x_threshold_set
             all_train_y = y_threshold_set

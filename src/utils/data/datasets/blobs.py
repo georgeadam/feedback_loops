@@ -23,10 +23,16 @@ def generate_blobs_dataset(noise: float=0.0) -> Callable:
 
         cols = np.arange(num_features)
 
-        if noise > 0.0:
-            y_train_corrupt = corrupt_labels(y_train, noise)
+        if noise.train > 0.0:
+            y_train_corrupt = corrupt_labels(y_train, noise.train)
         else:
             y_train_corrupt = y_train
+
+        if noise.val > 0.0:
+            y_val = corrupt_labels(y_val, noise.val)
+
+        if noise.future > 0.0:
+            y_update = corrupt_labels(y_update, noise.future)
 
         data = {"x_train": x_train, "y_train": y_train_corrupt, "y_train_clean": y_train, "x_val": x_val, "y_val": y_val,
                 "x_update": x_update, "y_update": y_update, "x_test": x_test, "y_test": y_test}

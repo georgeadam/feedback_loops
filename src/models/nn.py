@@ -10,6 +10,7 @@ class NN(torch.nn.Module):
         self.num_features = num_features
         self.layers = self._create_layers(hidden_layers)
         self.device = device
+        self.classes_ = np.array([0, 1])
 
     def forward(self, x):
         if type(x) is np.ndarray:

@@ -3,8 +3,8 @@ from .datasets import generate_circles_dataset
 from .datasets import generate_gaussian_dataset
 from .datasets import load_mimic_iii_data
 from .datasets import load_mimic_iv_data, mimic_iv_paths
-from .datasets import generate_moons_dataset, generate_moons_noisy_update_dataset
-from .datasets import generate_sklearn_make_classification_dataset, generate_sklearn_make_classification_noisy_update_dataset
+from .datasets import generate_moons_dataset
+from .datasets import generate_sklearn_make_classification_dataset
 from .datasets import generate_real_dataset_static
 from .datasets import load_support2cls_data
 from .datasets import generate_real_dataset_temporal
@@ -61,10 +61,6 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_circles_dataset(args.data.noise)
     elif args.data.type == "support2":
         return generate_real_dataset_static(load_support2cls_data)
-    elif args.data.type == "moons_noisy_update":
-        return generate_moons_noisy_update_dataset(args.data.start, args.data.end, args.data.noise)
-    elif args.data.type == "sklearn_noisy_update":
-        return generate_sklearn_make_classification_noisy_update_dataset(args.data.noise)
     elif args.data.type == "blobs":
         return generate_blobs_dataset(args.data.noise)
 

@@ -257,10 +257,46 @@ def refit_threshold(model: Model, data_wrapper, threshold: float,
     return threshold
 
 
-def replace_labels(feedback: bool, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
+# def replace_labels(feedback: bool, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
+#                    trust_fn: Callable = None, clinician_fpr: float = 0.0, clinician_trust: float = 1.0,
+#                    model_fpr: float = 0.2, scaler: Transformer = None):
+#     if feedback:
+#         model_prob = new_model.predict_proba(scaler.transform(x))
+#         if model_prob.shape[1] > 1:
+#             model_pred = model_prob[:, 1] > threshold
+#         else:
+#             model_pred = model_prob[:, 0] > threshold
+#
+#         model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+#         model_fp_idx = np.where(np.logical_and(y == 0, model_pred == 1))[0]
+#         model_pred = copy.deepcopy(y)
+#         model_pred[model_fp_idx] = 1
+#     else:
+#         model_prob = new_model.predict_proba(scaler.transform(x))
+#         model_pred = copy.deepcopy(y)
+#         model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+#
+#     trust = trust_fn(model_fpr=model_fpr, model_prob=model_prob, clinician_trust=clinician_trust)
+#
+#     clinician_pred = copy.deepcopy(y)
+#     neg_idx = np.where(clinician_pred == 0)[0]
+#     physician_fp_idx = np.random.choice(neg_idx, min(int(clinician_fpr * len(y)), len(neg_idx)))
+#     clinician_pred[physician_fp_idx] = 1
+#
+#     if type(trust) != float:
+#         bernoulli = np.random.binomial([1] * len(y), trust)
+#     else:
+#         bernoulli = np.random.choice([0, 1], len(y), p=[1 - trust, trust])
+#
+#     target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
+#
+#     return target
+
+
+def replace_labels(feedback: str, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
                    trust_fn: Callable = None, clinician_fpr: float = 0.0, clinician_trust: float = 1.0,
                    model_fpr: float = 0.2, scaler: Transformer = None):
-    if feedback:
+    if (feedback == "amplify") or (feedback is True):
         model_prob = new_model.predict_proba(scaler.transform(x))
         if model_prob.shape[1] > 1:
             model_pred = model_prob[:, 1] > threshold
@@ -271,6 +307,19 @@ def replace_labels(feedback: bool, new_model: Model, x: np.ndarray, y: np.ndarra
         model_fp_idx = np.where(np.logical_and(y == 0, model_pred == 1))[0]
         model_pred = copy.deepcopy(y)
         model_pred[model_fp_idx] = 1
+    elif feedback == "oscillate":
+        model_prob = new_model.predict_proba(scaler.transform(x))
+        if model_prob.shape[1] > 1:
+            model_pred = model_prob[:, 1] > threshold
+        else:
+            model_pred = model_prob[:, 0] > threshold
+
+        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+        model_tp_idx = np.where(np.logical_and(y == 1, model_pred == 1))[0]
+
+        idx = np.random.choice(model_tp_idx, int(0.25 * len(model_tp_idx)))
+        model_pred = copy.deepcopy(y)
+        model_pred[idx] = 0
     else:
         model_prob = new_model.predict_proba(scaler.transform(x))
         model_pred = copy.deepcopy(y)
