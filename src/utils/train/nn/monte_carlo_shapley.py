@@ -53,11 +53,11 @@ class MonteCarloShapleyNNTrainer:
 
         x_train, x_val_reg = scaler.transform(x_train), scaler.transform(x_val_reg)
 
-        train_regular_nn(model, self._optimizer, x_train, y_train, x_val_reg, y_val_reg,
+        train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val_reg, y_val_reg,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -102,7 +102,7 @@ class MonteCarloShapleyNNTrainer:
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_train = scaler.transform(x_train)
 
-        new_model = train_regular_nn(new_model, self._optimizer, x_train, y_train, x_val_reg, y_val_reg,
+        new_model = train_regular_nn(new_model, self._optimizer, F.cross_entropy, x_train, y_train, x_val_reg, y_val_reg,
                                      self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                                      self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)), self._write)
 
@@ -154,7 +154,7 @@ def mc_shapley(model_fn, optimizer_fn, x_train, y_train, x_val, y_val, eval_fn, 
             model = model_fn(x_train.shape[1]).to(device)
             optimizer = optimizer_fn(model.parameters())
 
-            train_regular_nn(model, optimizer, x_train[cumulative_j].reshape(len(cumulative_j), -1), y_train[cumulative_j],
+            train_regular_nn(model, optimizer, F.cross_entropy, x_train[cumulative_j].reshape(len(cumulative_j), -1), y_train[cumulative_j],
                              x_val, y_val, epochs, early_stopping_iter, None, None, False)
 
             with torch.no_grad():

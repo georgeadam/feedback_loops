@@ -225,7 +225,7 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
         # No longer interested in effect of flipping labels
 
         refit_scaler(scaler, data_wrapper, update)
-        model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num)
+        model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num, threshold)
 
         threshold = refit_threshold(model, data_wrapper, threshold, update, ddv, scaler)
 

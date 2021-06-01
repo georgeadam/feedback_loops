@@ -33,6 +33,14 @@ class NN(torch.nn.Module):
 
         return torch.nn.functional.softmax(out, dim=1).detach().cpu().numpy()
 
+    def predict_proba_grad(self, x):
+        if type(x) is np.ndarray:
+            x = torch.from_numpy(x).float().to(self.device)
+
+        out = self.forward(x)
+
+        return torch.nn.functional.softmax(out, dim=1)
+
     def _create_layers(self, hidden_layers):
         if hidden_layers == 0:
             fc = torch.nn.ModuleList([torch.nn.Linear(self.num_features, 2)])

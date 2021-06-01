@@ -44,10 +44,10 @@ class PosPredNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+        train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -70,7 +70,7 @@ class PosPredNNTrainer:
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
-        model = train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+        model = train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 

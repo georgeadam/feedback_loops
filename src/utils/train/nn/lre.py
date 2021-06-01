@@ -69,7 +69,7 @@ class LRENNTrainer:
                                             scaler.transform(x_val_lre), \
                                             scaler.transform(x_val_reg)
 
-        train_regular_nn(model, optimizer, x_train, y_train, x_val_reg, y_val_reg,
+        train_regular_nn(model, optimizer, F.cross_entropy, x_train, y_train, x_val_reg, y_val_reg,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
@@ -90,7 +90,7 @@ class LRENNTrainer:
                   self._lr_lre, self._epochs_lre, self._early_stopping_iter_lre, self._incremental,
                   self._writer, self._writer_prefix.format_map(SafeDict(type="lre", update_num=0)), self._write, 0, self._seed)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 

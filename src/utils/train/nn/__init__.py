@@ -6,3 +6,4 @@ from .gradient_shapley import GradientShapleyNNTrainer
 from .monte_carlo_shapley import MonteCarloShapleyNNTrainer
 from .pos_pred import PosPredNNTrainer
 from .dro import DRONNTrainer
+from .hausman import HausmanNNTrainer

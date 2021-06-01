@@ -79,7 +79,7 @@ class LFENNTrainer:
                                         scaler.transform(x_val_lre), \
                                         scaler.transform(x_val_reg)
 
-        train_regular_nn(model, optimizer, x_train, y_train, x_val_reg, y_val_reg,
+        train_regular_nn(model, optimizer, F.cross_entropy, x_train, y_train, x_val_reg, y_val_reg,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
                          self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
@@ -130,7 +130,7 @@ class LFENNTrainer:
         with open("y_corrected{}_{}.npy".format(self._seed, 0), "wb") as f:
             np.save(f, y_corrected.detach().cpu().numpy())
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -399,6 +399,31 @@ class YEpsUpdater():
 
         with torch.no_grad():
             updated_y = torch.clamp(y - self.v, 0, 1)
+
+        return updated_y
+
+
+class YSigmoidAnnealing():
+    def __init__(self, momentum):
+        self.momentum = momentum
+        self.v = None
+        self.grad_eps = None
+
+    def update_y(self, loss, y, eps, epochs, epoch):
+        grad_y = torch.autograd.grad(loss, y, only_inputs=True)[0]
+
+        if self.momentum:
+            if self.v is None:
+                self.v = grad_y
+            else:
+                self.v += grad_y
+        else:
+            self.v = grad_y
+
+        with torch.no_grad():
+            updated_y = torch.clamp(y - self.v, 0, 1)
+
+        self.grad_eps = torch.zeros(y.shape).to(y.device)
 
         return updated_y
 
