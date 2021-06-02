@@ -59,12 +59,15 @@ class HausmanNNTrainer:
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
+        x_temp, y_temp = data_wrapper.get_init_train_data()
+        ignore_samples = len(x_temp)
+
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, threshold), x_train, y_train, x_val, y_val,
+        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, ignore_samples, threshold), x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 
@@ -148,10 +151,11 @@ def train_hausman_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
     return model
 
 
-def wrapped_hausman(a0, a1, threshold):
+def wrapped_hausman(a0, a1, ignore_samples, threshold):
     def hausman_nll(pred, y):
         with torch.no_grad():
-            pos_idx = pred > threshold
+            idx_range = torch.arange(len(pred)).int().to(pred.device)
+            pos_idx = (pred > threshold) & (idx_range > ignore_samples)
 
         a01 = (1-a0-a1)
         a01_vec = torch.ones(pred.shape).float().to(pred.device)
