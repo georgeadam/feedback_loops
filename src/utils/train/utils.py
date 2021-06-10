@@ -1,5 +1,5 @@
 from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
-    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer
+    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -49,3 +49,6 @@ def get_trainer(args):
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_hausman":
         return wrapped(HausmanNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optim_args=args.optim, rate_args=args.rates)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_pu":
+        return wrapped(PUNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)

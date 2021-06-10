@@ -7,3 +7,4 @@ from .monte_carlo_shapley import MonteCarloShapleyNNTrainer
 from .pos_pred import PosPredNNTrainer
 from .dro import DRONNTrainer
 from .hausman import HausmanNNTrainer
+from .pu import PUNNTrainer
