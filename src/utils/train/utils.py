@@ -1,5 +1,5 @@
 from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
-    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer
+    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer, BalancedReweightNNTrainer
 from .traditional_ml import TraditionalMLTrainer
 
 
@@ -51,4 +51,7 @@ def get_trainer(args):
                        optim_args=args.optim, rate_args=args.rates)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_pu":
         return wrapped(PUNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_balanced_reweight":
+        return wrapped(BalancedReweightNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optim_args=args.optim)

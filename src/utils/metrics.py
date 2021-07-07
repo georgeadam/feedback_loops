@@ -119,6 +119,13 @@ def compute_rl_rates(y: np.ndarray, y_pred: np.ndarray):
     return rates
 
 
+def fpr(y: np.ndarray, y_pred: np.ndarray):
+    tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
+    fpr = fp / (fp + tn)
+
+    return fpr
+
+
 class RateTracker():
     def __init__(self):
         self._rates = {}
