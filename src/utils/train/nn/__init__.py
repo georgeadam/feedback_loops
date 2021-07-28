@@ -9,3 +9,4 @@ from .dro import DRONNTrainer
 from .hausman import HausmanNNTrainer
 from .pu import PUNNTrainer
 from .balanced_reweight import BalancedReweightNNTrainer
+from .imbalanced import ImbalancedNNTrainer

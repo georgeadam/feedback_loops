@@ -1,11 +1,10 @@
 from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
-    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer, BalancedReweightNNTrainer
-from .traditional_ml import TraditionalMLTrainer
+    PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer, BalancedReweightNNTrainer, \
+    ImbalancedNNTrainer
+from .traditional_ml import TraditionalMLTrainer, PosPredSklearnTrainer
 
 
 from src.utils.model import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
-
-REGULAR_TRAIN_TYPES = ["regular", "aum", "data_shapley", "confidence", "sklearn", "nn_regular"]
 
 
 def wrapped(constructor, **kwargs):
@@ -16,8 +15,10 @@ def wrapped(constructor, **kwargs):
 
 
 def get_trainer(args):
-    if args.model.type in TRADITIONAL_ML_MODEL_TYPES:
+    if args.model.type in TRADITIONAL_ML_MODEL_TYPES and args.optim.type == "sklearn_regular":
         return wrapped(TraditionalMLTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update)
+    elif args.model.type in TRADITIONAL_ML_MODEL_TYPES and args.optim.type == "sklearn_pos_pred":
+        return wrapped(PosPredSklearnTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update)
     elif args.model.type in NN_MODEL_TYPES and (args.optim.type == "nn_regular" or args.optim.type == "nn_regular_csc2541_baseline"):
         return wrapped(RegularNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optim_args=args.optim)
@@ -54,4 +55,7 @@ def get_trainer(args):
                        optim_args=args.optim)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_balanced_reweight":
         return wrapped(BalancedReweightNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_imbalanced":
+        return wrapped(ImbalancedNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optim_args=args.optim)
