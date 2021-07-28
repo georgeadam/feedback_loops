@@ -8,6 +8,8 @@ from .datasets import generate_sklearn_make_classification_dataset
 from .datasets import generate_real_dataset_static
 from .datasets import load_support2cls_data
 from .datasets import generate_real_dataset_temporal
+from .datasets import generate_adult_dataset
+from .datasets import generate_credit_g_dataset
 
 from .wrappers import StaticDataWrapper
 from .wrappers import TemporalDataWrapper
@@ -63,6 +65,10 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_real_dataset_static(load_support2cls_data)
     elif args.data.type == "blobs":
         return generate_blobs_dataset(args.data.noise)
+    elif args.data.type == "adult":
+        return generate_adult_dataset(args.data.noise)
+    elif args.data.type == "credit_g":
+        return generate_credit_g_dataset(args.data.noise)
 
 
 def wrap_constructor(constructor, **kwargs):
@@ -138,6 +144,12 @@ def get_data_wrapper_fn(args):
                                     agg_data=args.update_params.agg_data, tyl=args.data.tyl,
                                     uyl=args.data.uyl, next_year=args.data.next_year)
         elif args.optim.type == "nn_balanced_reweight":
+            constructor = TemporalDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train,
+                                    ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
+                                    agg_data=args.update_params.agg_data, tyl=args.data.tyl,
+                                    uyl=args.data.uyl, next_year=args.data.next_year)
+        elif args.optim.type == "nn_imbalanced":
             constructor = TemporalDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train,
                                     ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
@@ -223,6 +235,11 @@ def get_data_wrapper_fn(args):
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_balanced_reweight":
+            constructor = StaticDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    num_updates=args.data.num_updates)
+        elif args.optim.type == "nn_imbalanced":
             constructor = StaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,

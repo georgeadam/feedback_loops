@@ -10,3 +10,5 @@ from .static import generate_real_dataset_static
 from .support import load_support2cls_data
 from .temporal import generate_real_dataset_temporal
 from .utils import TEMPORAL_DATA_TYPES, STATIC_DATA_TYPES
+from .adult import generate_adult_dataset
+from .credit_g import generate_credit_g_dataset
