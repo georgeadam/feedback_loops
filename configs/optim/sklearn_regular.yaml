@@ -1,0 +1,3 @@
+type: sklearn_regular
+class_weight: null
+use_cv: False

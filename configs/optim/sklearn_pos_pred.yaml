@@ -1,0 +1,3 @@
+type: sklearn_pos_pred
+class_weight: null
+use_cv: False
