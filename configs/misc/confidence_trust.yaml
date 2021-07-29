@@ -1,3 +1,0 @@
-# @package _group_
-seeds: 1
-update_types: [ "feedback_full_fit_confidence_trust", "feedback_full_fit", "feedback_full_fit_confidence_threshold_trust" ]
