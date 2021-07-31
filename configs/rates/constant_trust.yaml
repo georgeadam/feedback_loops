@@ -1,7 +1,0 @@
-# @package _group_
-idr: fpr # Initial desired rate
-idv: 0.2 # Initial desired value
-tvp: 0.2 # Threshold validation percentage
-ddr: fpr # Dynamic desired rate
-ddp: all # Dynamic desired partition
-train_lambda: 1.0

@@ -42,11 +42,11 @@ def wrapped(model_fn, use_cv, cv, **kwargs) -> Callable:
 
 def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
     if args.model.type == "lr":
-        return wrapped(lr, args.optim.use_cv, args.optim.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
+        return wrapped(lr, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
     elif args.model.type == "lr_online":
-        return wrapped(lr_online, args.use_cv, args.cv, warm_start=args.warm_start, class_weight=args.class_weight)
+        return wrapped(lr_online, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
     elif args.model.type == "linear_svm":
-        return wrapped(linear_svm, args.use_cv, args.cv, warm_start=args.warm_start, class_weight=args.class_weight)
+        return wrapped(linear_svm, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
     elif args.model.type == "nn" or args.model.type == "nn_dro":
         return wrapped(NN, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
@@ -57,17 +57,13 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(NN_LFE, None, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
     elif args.model.type == "svm_rbf":
-        return wrapped(rbf_svm, args.optim.use_cv, args.optim.cv)
+        return wrapped(rbf_svm, args.optim.use_cv, args.model.cv)
     elif args.model.type == "rf":
-        return wrapped(random_forest, args.optim.use_cv, args.optim.cv, class_weight=args.optim.class_weight)
+        return wrapped(random_forest, args.optim.use_cv, args.model.cv, class_weight=args.optim.class_weight)
     elif args.model.type == "adaboost":
-        return wrapped(adaboost, args.use_cv, args.cv)
+        return wrapped(adaboost, args.optim.use_cv, args.model.cv)
     elif args.model.type == "xgboost":
-        return wrapped(xgboost, args.use_cv, args.cv, warm_start=args.warm_start)
-    elif args.model.type == "nn_ewc":
-        return wrapped(NNEWC, args.use_cv, args.cv, lr=args.lr, online_lr=args.online_lr, iterations=args.iterations,
-                       optimizer_name=args.optimizer, reset_optim=args.reset_optim, tol=args.tol,
-                       hidden_layers=args.hidden_layers, activation=args.activation, importance=args.importance)
+        return wrapped(xgboost, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start)
     elif args.model.type == "q_net":
         return wrapped(QNet, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
