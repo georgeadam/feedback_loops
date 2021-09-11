@@ -1,6 +1,6 @@
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import GridSearchCV
-from src.models.sklearn import lr, linear_svm, rbf_svm, adaboost, random_forest, xgboost, lr_online, evaluate
+from src.models.sklearn import lr, svm_linear, svm_rbf, adaboost, random_forest, xgboost, lr_online, evaluate, knn
 from src.models.pytorch import NNEWC
 from src.models.nn import NN
 from src.models.lre import NN_LRE
@@ -12,7 +12,7 @@ from typing import Any, Callable
 from src.utils.typing import Model
 
 
-TRADITIONAL_ML_MODEL_TYPES = ["linear_svm", "lr", "adaboost", "random_forest", "rbf_svm", "xgboost", "rf"]
+TRADITIONAL_ML_MODEL_TYPES = ["svm_linear", "lr", "adaboost", "random_forest", "svm_rbf", "xgboost", "rf", "knn"]
 NN_MODEL_TYPES = ["nn", "nn_lre", "nn_lfe", "nn_dro"]
 
 # def wrapped(fn: Callable[[Any], Model], **kwargs: Any) -> Callable:
@@ -45,8 +45,8 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(lr, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
     elif args.model.type == "lr_online":
         return wrapped(lr_online, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
-    elif args.model.type == "linear_svm":
-        return wrapped(linear_svm, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
+    elif args.model.type == "svm_linear":
+        return wrapped(svm_linear, args.optim.use_cv, args.model.cv, warm_start=args.update_params.warm_start, class_weight=args.optim.class_weight)
     elif args.model.type == "nn" or args.model.type == "nn_dro":
         return wrapped(NN, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
@@ -57,7 +57,7 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
         return wrapped(NN_LFE, None, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
     elif args.model.type == "svm_rbf":
-        return wrapped(rbf_svm, args.optim.use_cv, args.model.cv)
+        return wrapped(svm_rbf, args.optim.use_cv, args.model.cv)
     elif args.model.type == "rf":
         return wrapped(random_forest, args.optim.use_cv, args.model.cv, class_weight=args.optim.class_weight)
     elif args.model.type == "adaboost":
@@ -67,3 +67,5 @@ def get_model_fn(args: DictConfig) -> Callable[[int], Model]:
     elif args.model.type == "q_net":
         return wrapped(QNet, False, None, hidden_layers=args.model.hidden_layers, activation=args.model.activation,
                        device=args.model.device)
+    elif args.model.type == "knn":
+        return wrapped(knn, args.optim.use_cv, args.model.cv, n_neighbors=args.model.n_neighbors)

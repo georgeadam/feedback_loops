@@ -1,0 +1,4 @@
+type: knn
+n_neighbors: 1
+cv:
+  n_neighbors: [ 75, 100, 125, 150 ]
