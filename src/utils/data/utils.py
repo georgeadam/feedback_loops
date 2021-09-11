@@ -115,7 +115,7 @@ def get_data_wrapper_fn(args):
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
-        elif args.optim.type == "nn_shapley":
+        elif args.optim.type == "nn_gradient_shapley":
             constructor = DataShapleyTemporalDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
@@ -178,7 +178,7 @@ def get_data_wrapper_fn(args):
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
-        elif args.optim.type == "nn_shapley":
+        elif args.optim.type == "nn_gradient_shapley":
             constructor = DataShapleyStaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,

@@ -76,7 +76,7 @@ def generate_moons_dataset(start: float=0.0, end: float=np.pi, noise: float=0.0)
         cols = np.arange(x_train.shape[1])
 
         if noise.train > 0.0:
-            y_train = corrupt_labels(y_train, noise)
+            y_train = corrupt_labels(y_train, noise.train)
 
         if noise.val > 0.0:
             y_val = corrupt_labels(y_val, noise.val)
