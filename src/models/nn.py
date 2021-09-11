@@ -1,8 +1,10 @@
 import numpy as np
 import torch.nn
 
+from sklearn.base import BaseEstimator
 
-class NN(torch.nn.Module):
+
+class NN(torch.nn.Module, BaseEstimator):
     def __init__(self, num_features, hidden_layers, activation, device):
         super(NN, self).__init__()
 
@@ -24,12 +26,23 @@ class NN(torch.nn.Module):
 
         return x
 
-    def predict_proba(self, x):
+    def predict(self, x):
         if type(x) is np.ndarray:
             x = torch.from_numpy(x).float().to(self.device)
 
         with torch.no_grad():
             out = self.forward(x)
+
+        pred = torch.max(out, 1)[1]
+
+        return pred.detach().cpu().numpy()
+
+    def predict_proba(self, X):
+        if type(X) is np.ndarray:
+            X = torch.from_numpy(X).float().to(self.device)
+
+        with torch.no_grad():
+            out = self.forward(X)
 
         return torch.nn.functional.softmax(out, dim=1).detach().cpu().numpy()
 
@@ -66,3 +79,12 @@ class NN(torch.nn.Module):
             fc = torch.nn.ModuleList(fc)
 
         return fc
+
+    def get_params(self, deep=True):
+        return {}
+
+    def set_params(self, **params):
+        pass
+
+    def fit(self, *args):
+        pass
