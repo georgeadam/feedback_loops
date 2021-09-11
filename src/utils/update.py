@@ -29,201 +29,28 @@ def get_update_fn(args):
                    update=args.update_params.do_update)
 
 
-# def get_update_fn(update_type: str):
-#     update_fn = update_model_general
-#
-#     if update_type == "feedback_online_single_batch":
-#         return wrapped(update_fn, agg_data=False, include_train=False, weight_type=None,
-#                        fit_type="partial_fit", feedback=True)
-#     elif update_type == "feedback_online_all_update_data":
-#         return wrapped(update_fn, agg_data=True, include_train=False, weight_type=None,
-#                        fit_type="partial_fit", feedback=True)
-#     elif update_type == "feedback_online_all_data":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="partial_fit", feedback=True)
-#     elif update_type == "feedback_full_fit" or update_type == "feedback_full_fit_cad":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_past_year" or update_type == "feedback_full_fit_past_year_cad":
-#         return wrapped(update_fn, agg_data=False, include_train=False, weight_type=None,
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_online_all_update_data_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=False, weight_type=None,
-#                        fit_type="partial_fit", feedback=True)
-#     elif update_type == "feedback_online_all_data_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="linearly_decreasing",
-#                        fit_type="partial_fit", feedback=True)
-#     elif update_type == "feedback_full_fit_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="linearly_decreasing",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "no_feedback_online_single_batch":
-#         return wrapped(update_fn, agg_data=False, include_train=False, weight_type=None,
-#                        fit_type="partial_fit", feedback=False)
-#     elif update_type == "no_feedback_online_all_update_data":
-#         return wrapped(update_fn, agg_data=True, include_train=False, weight_type=None,
-#                        fit_type="partial_fit", feedback=False)
-#     elif update_type == "no_feedback_online_all_data":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="partial_fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit_past_year":
-#         return wrapped(update_fn, agg_data=False, include_train=False, weight_type=None,
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "no_feedback_online_all_update_data_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=False, weight_type="linearly_decreasing",
-#                        fit_type="partial_fit", feedback=False)
-#     elif update_type == "no_feedback_online_all_data_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="linearly_decreasing",
-#                        fit_type="partial_fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit_weighted":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="linearly_decreasing",
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "feedback_full_fit_confidence":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="confidence",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_drop":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_drop_low_confidence":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_low_confidence",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_drop_random":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="random",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_drop_everything":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_everything",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_drop_all_pos":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_all_pos",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_flip_everything":
-#         return wrapped(update_fn, agg_data=True, include_train=True,
-#                        fit_type="fit", feedback=True, flip_type="flip_everything")
-#     elif update_type == "feedback_full_fit_flip_oracle":
-#         return wrapped(update_fn, agg_data=True, include_train=True,
-#                        fit_type="fit", feedback=True, flip_type="oracle")
-#     elif update_type == "feedback_full_fit_flip_random":
-#         return wrapped(update_fn, agg_data=True, include_train=True,
-#                        fit_type="fit", feedback=True, flip_type="random")
-#     elif update_type == "feedback_full_fit_flip_low_confidence":
-#         return wrapped(update_fn, agg_data=True, include_train=True,
-#                        fit_type="fit", feedback=True, flip_type="flip_low_confidence")
-#     elif update_type == "feedback_full_fit_oracle":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="oracle",
-#                        fit_type="fit", feedback=True)
-#     elif update_type == "feedback_full_fit_conditional_trust":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=True, trust_fn=conditional_trust)
-#     elif update_type == "feedback_full_fit_confidence_trust":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=True, trust_fn=confidence_trust)
-#     elif update_type == "feedback_full_fit_confidence_threshold_trust":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=True, trust_fn=confidence_threshold_trust)
-#     elif update_type == "feedback_full_fit_constant_trust":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=True, trust_fn=constant_trust)
-#     elif update_type == "no_feedback_full_fit_confidence":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="confidence",
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit_drop":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop",
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit_drop_low_confidence":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type="drop_low_confidence",
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "no_feedback_full_fit_oracle":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=False)
-#     elif update_type == "evaluate":
-#         return wrapped(update_fn, agg_data=True, include_train=True, weight_type=None,
-#                        fit_type="fit", feedback=False, update=False)
-
-
-def map_update_type(update_type: str):
-    if update_type.startswith("feedback_online_single_batch"):
-        return "ssrd"
-    elif update_type.startswith("no_feedback_full_fit_confidence"):
-        return "no_feedback_confidence"
-    elif update_type.startswith("no_feedback_full_fit_drop"):
-        return "no_feedback_drop"
-    elif update_type.startswith("feedback_full_fit_cad"):
-        return "refit_all_data"
-    elif update_type.startswith("feedback_full_fit_flip_everything"):
-        return "feedback_flip_all_pos"
-    elif update_type.startswith("feedback_full_fit_flip_oracle"):
-        return "feedback_flip_oracle"
-    elif update_type.startswith("feedback_full_fit_flip_random"):
-        return "feedback_flip_random"
-    elif update_type.startswith("feedback_full_fit_flip_low_confidence"):
-        return "feedback_flip_low_confidence"
-    elif update_type.startswith("feedback_full_fit_past_year_cad"):
-        return "refit_past_year"
-    elif update_type.startswith("feedback_full_fit_drop_everything"):
-        return "feedback_drop_all_pos_pred"
-    elif update_type.startswith("feedback_full_fit_drop_all_pos"):
-        return "feedback_drop_all_pos_label"
-    elif update_type.startswith("no_feedback_full_fit_drop_low_confidence"):
-        return "no_feedback_drop_low_confidence"
-    elif update_type.startswith("no_feedback_full_fit_oracle"):
-        return "no_feedback_oracle"
-    elif update_type.startswith("no_feedback_full_fit_past_year"):
-        return "no_feedback_past_year"
-    elif update_type.startswith("feedback_full_fit_confidence"):
-        return "feedback_confidence"
-    elif update_type.startswith("feedback_full_fit_drop_random"):
-        return "feedback_drop_random"
-    elif update_type.startswith("feedback_full_fit_drop_low_confidence"):
-        return "feedback_drop_low_confidence"
-    elif update_type.startswith("feedback_full_fit_past_year"):
-        return "feedback_past_year"
-    elif update_type.startswith("feedback_online_all_update_data"):
-        return "ssad-nt"
-    elif update_type.startswith("feedback_online_all_data"):
-        return "ssad-t"
-    elif update_type.startswith("feedback_full_fit_conditional_trust"):
-        return "feedback_conditional_trust"
-    elif update_type.startswith("feedback_full_fit_confidence_trust"):
-        return "feedback_confidence_trust"
-    elif update_type.startswith("feedback_full_fit_confidence_threshold_trust"):
-        return "feedback_confidence_threshold_trust"
-    elif update_type.startswith("feedback_full_fit_constant_trust"):
-        return "feedback_constant_trust"
-    elif update_type.startswith("feedback_full_fit_oracle"):
-        return "feedback_oracle"
-    elif update_type.startswith("feedback_full_fit"):
-        return "feedback_all_data"
-    elif update_type.startswith("no_feedback"):
-        return "no_feedback_all_data"
-    elif update_type.startswith("evaluate"):
-        return "static"
-
-
 def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
                          feedback: bool = False,
                          update: bool = True, trust_fn: Callable = full_trust, clinician_fpr: float = 0.0,
                          clinician_trust: float = 1.0,
                          threshold: Optional[float] = None, ddv: Optional[float] = None, scaler: Transformer = None,
-                         train_lambda: float = 1.0):
+                         recover_prob: float = 1.0):
     x_train, y_train = data_wrapper.get_train_data()
 
     for update_num, (x_update, y_update) in enumerate(data_wrapper.get_update_data_generator(), start=1):
+        # Create copies of update labels so we don't overwrite original data
         y_update = copy.deepcopy(y_update)
         y_update_unmodified = copy.deepcopy(y_update)
 
-        update_conf = model.predict_proba(scaler.transform(x_update))[:, 1]
-
+        # Compute FPR on update data to be used by conditional clinician trust
         model_fpr = compute_model_fpr(model, x_update, y_update, threshold, scaler)
         y_update = replace_labels(feedback, model, x_update, y_update, threshold, trust_fn,
-                                  clinician_fpr, clinician_trust, model_fpr, scaler)
+                                  clinician_fpr, clinician_trust, model_fpr, recover_prob, scaler)
 
         data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
         data_wrapper.store_current_update_batch_clean(x_update, y_update_unmodified)
-        # y_update = flip_labels(flip_type, sub_conf, sub_y, sub_y_unmodified, threshold)
-        # No longer interested in effect of flipping labels
 
+        # Update data normalization to take into account new data
         refit_scaler(scaler, data_wrapper, update)
         model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num, threshold)
 
@@ -257,73 +84,15 @@ def refit_threshold(model: Model, data_wrapper, threshold: float,
     return threshold
 
 
-# def replace_labels(feedback: bool, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
-#                    trust_fn: Callable = None, clinician_fpr: float = 0.0, clinician_trust: float = 1.0,
-#                    model_fpr: float = 0.2, scaler: Transformer = None):
-#     if feedback:
-#         model_prob = new_model.predict_proba(scaler.transform(x))
-#         if model_prob.shape[1] > 1:
-#             model_pred = model_prob[:, 1] > threshold
-#         else:
-#             model_pred = model_prob[:, 0] > threshold
-#
-#         model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
-#         model_fp_idx = np.where(np.logical_and(y == 0, model_pred == 1))[0]
-#         model_pred = copy.deepcopy(y)
-#         model_pred[model_fp_idx] = 1
-#     else:
-#         model_prob = new_model.predict_proba(scaler.transform(x))
-#         model_pred = copy.deepcopy(y)
-#         model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
-#
-#     trust = trust_fn(model_fpr=model_fpr, model_prob=model_prob, clinician_trust=clinician_trust)
-#
-#     clinician_pred = copy.deepcopy(y)
-#     neg_idx = np.where(clinician_pred == 0)[0]
-#     physician_fp_idx = np.random.choice(neg_idx, min(int(clinician_fpr * len(y)), len(neg_idx)))
-#     clinician_pred[physician_fp_idx] = 1
-#
-#     if type(trust) != float:
-#         bernoulli = np.random.binomial([1] * len(y), trust)
-#     else:
-#         bernoulli = np.random.choice([0, 1], len(y), p=[1 - trust, trust])
-#
-#     target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
-#
-#     return target
-
-
 def replace_labels(feedback: str, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
                    trust_fn: Callable = None, clinician_fpr: float = 0.0, clinician_trust: float = 1.0,
-                   model_fpr: float = 0.2, scaler: Transformer = None):
+                   model_fpr: float = 0.2, recover_prob: float= 1.0, scaler: Transformer = None):
     if (feedback == "amplify") or (feedback is True):
-        model_prob = new_model.predict_proba(scaler.transform(x))
-        if model_prob.shape[1] > 1:
-            model_pred = model_prob[:, 1] > threshold
-        else:
-            model_pred = model_prob[:, 0] > threshold
-
-        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
-        model_fp_idx = np.where(np.logical_and(y == 0, model_pred == 1))[0]
-        model_pred = copy.deepcopy(y)
-        model_pred[model_fp_idx] = 1
+        model_pred, model_prob = replace_label_bias_amplification(new_model, scaler, threshold, x, y)
     elif feedback == "oscillate":
-        model_prob = new_model.predict_proba(scaler.transform(x))
-        if model_prob.shape[1] > 1:
-            model_pred = model_prob[:, 1] > threshold
-        else:
-            model_pred = model_prob[:, 0] > threshold
-
-        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
-        model_tp_idx = np.where(np.logical_and(y == 1, model_pred == 1))[0]
-
-        idx = np.random.choice(model_tp_idx, int(0.25 * len(model_tp_idx)))
-        model_pred = copy.deepcopy(y)
-        model_pred[idx] = 0
+        model_pred, model_prob = replace_label_bias_oscillation(new_model, scaler, threshold, recover_prob, x, y)
     else:
-        model_prob = new_model.predict_proba(scaler.transform(x))
-        model_pred = copy.deepcopy(y)
-        model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+        model_pred, model_prob = compute_model_pred(new_model, scaler, x, y)
 
     trust = trust_fn(model_fpr=model_fpr, model_prob=model_prob, clinician_trust=clinician_trust)
 
@@ -340,6 +109,47 @@ def replace_labels(feedback: str, new_model: Model, x: np.ndarray, y: np.ndarray
     target = bernoulli * model_pred + (1 - bernoulli) * clinician_pred
 
     return target
+
+
+def compute_model_pred(new_model, scaler, x, y):
+    model_prob = new_model.predict_proba(scaler.transform(x))
+    model_pred = copy.deepcopy(y)
+    model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+
+    return model_pred, model_prob
+
+
+def replace_label_bias_oscillation(new_model, scaler, threshold, recover_prob, x, y):
+    model_prob = new_model.predict_proba(scaler.transform(x))
+
+    if model_prob.shape[1] > 1:
+        model_pred = model_prob[:, 1] > threshold
+    else:
+        model_pred = model_prob[:, 0] > threshold
+
+    model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+    model_tp_idx = np.where(np.logical_and(y == 1, model_pred == 1))[0]
+    idx = np.random.choice(model_tp_idx, int(recover_prob * len(model_tp_idx)))
+    model_pred = copy.deepcopy(y)
+    model_pred[idx] = 0
+
+    return model_pred, model_prob
+
+
+def replace_label_bias_amplification(new_model, scaler, threshold, x, y):
+    model_prob = new_model.predict_proba(scaler.transform(x))
+
+    if model_prob.shape[1] > 1:
+        model_pred = model_prob[:, 1] > threshold
+    else:
+        model_pred = model_prob[:, 0] > threshold
+
+    model_prob = model_prob[np.arange(len(model_prob)), model_pred.astype(int)]
+    model_fp_idx = np.where(np.logical_and(y == 0, model_pred == 1))[0]
+    model_pred = copy.deepcopy(y)
+    model_pred[model_fp_idx] = 1
+
+    return model_pred, model_prob
 
 
 def track_performance(new_model: Model, rate_tracker, x_eval: np.ndarray, y_eval: np.ndarray,

@@ -1,0 +1,6 @@
+agg_data: True
+feedback: oscillate
+include_train: True
+do_update: True
+warm_start: False
+type: bias_oscillation_all_data_refit

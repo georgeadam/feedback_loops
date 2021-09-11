@@ -68,13 +68,13 @@ def get_dyanmic_desired_value(ddr: str, rates: Dict[str, List[float]]) -> Option
 def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelFn=None, trainer_fn=None,
                       update_fn: Callable=None, idr: str= "fpr", idv: float=0.1,
                       seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
-                      normalize: bool=True, train_lambda: float=1.0, return_model: bool=False,  **kwargs) -> (ResultDict, List):
+                      normalize: bool=True, recover_prob: float=1.0, return_model: bool=False,  **kwargs) -> (ResultDict, List):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
     models = []
 
     for seed in seeds:
-        print(seed)
+        print("Seed: {}".format(seed))
         set_seed(seed)
 
         data, cols = data_fn()
@@ -107,9 +107,9 @@ def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: Mode
 
         ddv = get_dyanmic_desired_value(data_wrapper.get_ddr(), rate_tracker.get_rates())
 
-        update_fn(model, data_wrapper, rate_tracker, trainer=trainer, threshold=threshold,
+        model = update_fn(model, data_wrapper, rate_tracker, trainer=trainer, threshold=threshold,
                   ddv=ddv, clinician_fpr=clinician_fpr, clinician_trust=clinician_trust,
-                  scaler=scaler, train_lambda=train_lambda)
+                  scaler=scaler, recover_prob=recover_prob)
         temp_rates = rate_tracker.get_rates()
 
         if return_model:
@@ -127,4 +127,4 @@ def call_update_loop(args: DictConfig, data_fn: Callable, data_wrapper_fn: Calla
                              idr=args.rates.idr, idv=args.rates.idv, seeds=args.misc.seeds,
                              clinician_fpr=args.rates.clinician_fpr,
                              clinician_trust=args.trust.clinician_trust, normalize=args.data.normalize,
-                             train_lambda=args.rates.train_lambda, return_model=args.misc.return_model)
+                             recover_prob=args.rates.recover_prob, return_model=args.misc.return_model)
