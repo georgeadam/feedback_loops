@@ -30,8 +30,8 @@ from .wrappers import MCShapleyDataWrapper
 from .wrappers import MCShapleyTrainDataAsValidation
 
 from omegaconf import DictConfig
+from src.models import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
 from src.utils.typing import DataFn
-from src.utils.model import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
 
 
 def get_data_fn(args: DictConfig) -> DataFn:
