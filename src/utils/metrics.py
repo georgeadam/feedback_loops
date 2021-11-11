@@ -148,9 +148,9 @@ class RateTracker():
         self._rates["detection"][-1] = p
 
 
-def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, threshold: float, scaler: Transformer):
+def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, scaler: Transformer):
     y_prob = model.predict_proba(scaler.transform(x))
-    y_pred = y_prob[:, 1] > threshold
+    y_pred = y_prob[:, 1] > model.threshold
 
     fp_idx = np.logical_and(y == 0, y_pred == 1)
     neg = np.sum(y == 0)

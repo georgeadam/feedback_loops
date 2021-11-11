@@ -5,6 +5,8 @@ from typing import Any, Callable, Dict, Union
 
 
 class Model(ABC):
+    threshold = 0.5
+    
     @abstractmethod
     def fit(self, X: np.ndarray, y: np.ndarray,
             sample_weight=None):

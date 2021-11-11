@@ -49,7 +49,7 @@ class HausmanNNTrainer:
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, threshold):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
         if not self._update:
             return model
 
@@ -66,7 +66,7 @@ class HausmanNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, ignore_samples, threshold), x_train, y_train, x_val, y_val,
+        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, ignore_samples, model.threshold), x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 

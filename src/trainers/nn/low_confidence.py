@@ -45,7 +45,7 @@ class LowConfidenceNNTrainer:
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, threshold, *args):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -53,7 +53,7 @@ class LowConfidenceNNTrainer:
 
         with torch.no_grad():
             prob = model.predict_proba(scaler.transform(x_update))
-            pred = prob[:, 1] > threshold
+            pred = prob[:, 1] > model.threshold
 
         sorted_indices = np.argsort(prob[:, 1])[pred]
         good_indices = np.arange(len(y_update))

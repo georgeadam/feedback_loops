@@ -1,13 +1,9 @@
 import copy
 import numpy as np
 
-from src.utils.detection import check_feedback_loop
-from src.utils.label_flip import flip_labels
-from src.utils.misc import create_empty_rates
 from src.utils.metrics import compute_model_fpr
-from src.utils.sample_reweighting import get_weights, initialize_weights, build_cumulative_weights
 from src.utils.threshold import find_threshold
-from src.utils.trust import full_trust, conditional_trust, constant_trust, confidence_trust, confidence_threshold_trust, get_trust_fn
+from src.utils.trust import full_trust, get_trust_fn
 
 from sklearn.model_selection import train_test_split
 from src.utils.typing import Model, Transformer
@@ -33,7 +29,7 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
                          feedback: bool = False,
                          update: bool = True, trust_fn: Callable = full_trust, clinician_fpr: float = 0.0,
                          clinician_trust: float = 1.0,
-                         threshold: Optional[float] = None, ddv: Optional[float] = None, scaler: Transformer = None,
+                         ddv: Optional[float] = None, scaler: Transformer = None,
                          recover_prob: float = 1.0):
     x_train, y_train = data_wrapper.get_train_data()
 
@@ -43,8 +39,8 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
         y_update_unmodified = copy.deepcopy(y_update)
 
         # Compute FPR on update data to be used by conditional clinician trust
-        model_fpr = compute_model_fpr(model, x_update, y_update, threshold, scaler)
-        y_update = replace_labels(feedback, model, x_update, y_update, threshold, trust_fn,
+        model_fpr = compute_model_fpr(model, x_update, y_update, scaler)
+        y_update = replace_labels(feedback, model, x_update, y_update, trust_fn,
                                   clinician_fpr, clinician_trust, model_fpr, recover_prob, scaler)
 
         data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
@@ -52,12 +48,12 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
 
         # Update data normalization to take into account new data
         refit_scaler(scaler, data_wrapper, update)
-        model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num, threshold)
+        model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num)
 
-        threshold = refit_threshold(model, data_wrapper, threshold, update, ddv, scaler)
+        model.threshold = refit_threshold(model, data_wrapper, update, ddv, scaler)
 
         x_eval, y_eval = data_wrapper.get_eval_data(update_num)
-        track_performance(model, rate_tracker, x_eval, y_eval, threshold, scaler)
+        track_performance(model, rate_tracker, x_eval, y_eval, scaler)
 
         data_wrapper.accumulate_update_data()
         rate_tracker.update_detection(y_train, data_wrapper.get_cumulative_update_data()[1])
@@ -65,32 +61,31 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None,
     return model
 
 
-def refit_threshold(model: Model, data_wrapper, threshold: float,
-                    update: bool, ddv: float, scaler: Transformer):
+def refit_threshold(model: Model, data_wrapper, update: bool, ddv: float, scaler: Transformer):
     ddr = data_wrapper.get_ddr()
     if update:
         if ddr is not None:
             all_thresh_x, all_thresh_y = data_wrapper.get_all_data_for_threshold_fit()
             valid_prob = model.predict_proba(scaler.transform(all_thresh_x))
 
-            prev_threshold = threshold
-            threshold = find_threshold(all_thresh_y, valid_prob, ddr, ddv)
+            prev_threshold = model.threshold
+            new_threshold = find_threshold(all_thresh_y, valid_prob, ddr, ddv)
 
-            if threshold is None:
-                threshold = prev_threshold
+            if new_threshold is None:
+                return prev_threshold
         else:
-            return threshold
+            return model.threshold
 
-    return threshold
+    return model.threshold
 
 
-def replace_labels(feedback: str, new_model: Model, x: np.ndarray, y: np.ndarray, threshold: float,
+def replace_labels(feedback: str, new_model: Model, x: np.ndarray, y: np.ndarray,
                    trust_fn: Callable = None, clinician_fpr: float = 0.0, clinician_trust: float = 1.0,
                    model_fpr: float = 0.2, recover_prob: float= 1.0, scaler: Transformer = None):
     if (feedback == "amplify") or (feedback is True):
-        model_pred, model_prob = replace_label_bias_amplification(new_model, scaler, threshold, x, y)
+        model_pred, model_prob = replace_label_bias_amplification(new_model, scaler, new_model.threshold, x, y)
     elif feedback == "oscillate":
-        model_pred, model_prob = replace_label_bias_oscillation(new_model, scaler, threshold, recover_prob, x, y)
+        model_pred, model_prob = replace_label_bias_oscillation(new_model, scaler, new_model.threshold, recover_prob, x, y)
     else:
         model_pred, model_prob = compute_model_pred(new_model, scaler, x, y)
 
@@ -152,18 +147,17 @@ def replace_label_bias_amplification(new_model, scaler, threshold, x, y):
     return model_pred, model_prob
 
 
-def track_performance(new_model: Model, rate_tracker, x_eval: np.ndarray, y_eval: np.ndarray,
-                      threshold: float, scaler: Transformer):
-    if threshold is None:
+def track_performance(new_model: Model, rate_tracker, x_eval: np.ndarray, y_eval: np.ndarray, scaler: Transformer):
+    if new_model.threshold is None:
         eval_prob = new_model.predict_proba(scaler.transform(x_eval))
         eval_pred = new_model.predict(scaler.transform(x_eval))
     else:
         eval_prob = new_model.predict_proba(scaler.transform(x_eval))
 
         if eval_prob.shape[1] > 1:
-            eval_pred = eval_prob[:, 1] >= threshold
+            eval_pred = eval_prob[:, 1] >= new_model.threshold
         else:
-            eval_pred = eval_prob[:, 0] >= threshold
+            eval_pred = eval_prob[:, 0] >= new_model.threshold
 
     rate_tracker.update_rates(y_eval, eval_pred, eval_prob)
 

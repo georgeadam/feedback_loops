@@ -44,7 +44,7 @@ class PosPredNNTrainer:
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, threshold, *args):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -52,7 +52,7 @@ class PosPredNNTrainer:
 
         with torch.no_grad():
             out = model.predict_proba(scaler.transform(x_update))
-            pred = out[:, 1] > threshold
+            pred = out[:, 1] > model.threshold
 
         neg_indices = (pred == 0)
         x_update, y_update = x_update[neg_indices], y_update[neg_indices]
