@@ -1,7 +1,7 @@
 import numpy as np
-import torch.nn
-
 from sklearn.base import BaseEstimator
+
+import torch.nn
 
 
 class NN(torch.nn.Module, BaseEstimator):

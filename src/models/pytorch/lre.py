@@ -1,14 +1,12 @@
+import numpy as np
 import torch
+from models.pytorch.meta import MetaLinear, MetaModule
 from torch import nn as nn
 
-import numpy as np
 
-from src.models.meta_nn import MetaModule, MetaLinear
-
-
-class NN_LFE(MetaModule):
+class NN_LRE(MetaModule):
     def __init__(self, num_features, hidden_layers, activation, device):
-        super(NN_LFE, self).__init__()
+        super(NN_LRE, self).__init__()
 
         self.activation = getattr(nn, activation)()
         self.num_features = num_features
