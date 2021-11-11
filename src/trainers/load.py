@@ -1,10 +1,10 @@
 from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
     PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer, BalancedReweightNNTrainer, \
     ImbalancedNNTrainer, LowConfidenceNNTrainer
-from .traditional_ml import TraditionalMLTrainer, PosPredSklearnTrainer
+from .traditional import TraditionalMLTrainer, PosPredSklearnTrainer
 
 
-from src.utils.model import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
+from src.models import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
 
 
 def wrapped(constructor, **kwargs):

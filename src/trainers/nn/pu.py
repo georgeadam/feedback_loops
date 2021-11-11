@@ -1,20 +1,21 @@
 import copy
 import logging
 
+import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.train.nn.utils import log_regular_losses
+from src.utils.losses import PULoss, PULossCombined
+from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
-from src.utils.train.nn.regular import train_regular_nn
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
 
-class HausmanNNTrainer:
-    def __init__(self, model_fn, seed, warm_start, update, optim_args, rate_args, **kwargs):
+class PUNNTrainer:
+    def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
         self._epochs = optim_args.epochs
@@ -26,9 +27,8 @@ class HausmanNNTrainer:
         self._momentum = optim_args.momentum
         self._nesterov = optim_args.nesterov
         self._weight_decay = optim_args.weight_decay
-
-        self._a0 = rate_args.idv
-        self._a1 = 0.0
+        self._nnpu = optim_args.nnpu
+        self._combined_loss = optim_args.combined_loss
 
         self._optimizer = None
         self._write = optim_args.log_tensorboard
@@ -50,7 +50,7 @@ class HausmanNNTrainer:
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, threshold):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -61,21 +61,30 @@ class HausmanNNTrainer:
 
         x_temp, y_temp = data_wrapper.get_init_train_data()
         ignore_samples = len(x_temp)
+        prior = np.sum(y_temp) / float(len(y_temp))
+        prior = np.array(1 - prior)
 
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, ignore_samples, threshold), x_train, y_train, x_val, y_val,
+        if self._combined_loss:
+            train_loss_fn = PULossCombined(prior=prior, ignore_samples=ignore_samples, nnPU=self._nnpu)
+        else:
+            train_loss_fn = PULoss(prior=prior, nnPU=self._nnpu)
+
+        val_loss_fn = PULoss(prior=prior, nnPU=self._nnpu)
+
+        model = train_pu_nn(model, self._optimizer, train_loss_fn, val_loss_fn, x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 
         return model
 
 
-def train_hausman_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix,
-                  write=True):
+def train_pu_nn(model, optimizer, train_loss_fn, val_loss_fn, x_train, y_train,
+                x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix, write=True):
     model.train()
     losses = []
     best_val_loss = float("inf")
@@ -94,16 +103,24 @@ def train_hausman_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
     y_val = torch.from_numpy(y_val).long().to(model.device)
 
     while not done:
-        out = model.predict_proba_grad(x_train)[:, 1]
-        train_loss = loss_fn(out, y_train)
+        out = model(x_train)
+        probs = F.softmax(out, dim=1)[:, 1]
+        out = out[:, 1]
+
+        train_loss = train_loss_fn(out, probs, y_train)
         train_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
         losses.append(train_loss.item())
 
         with torch.no_grad():
+            # val_out = model(x_val)
+            # val_loss = F.cross_entropy(val_out, y_val)
             val_out = model(x_val)
-            val_loss = F.cross_entropy(val_out, y_val)
+            val_probs = F.softmax(val_out, dim=1)[:, 1]
+            val_out = val_out[:, 1]
+
+            val_loss = val_loss_fn(val_out, val_probs, y_val)
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Train Loss: {} | Val Loss: {}".format(epoch, train_loss.item(), val_loss.item()))
@@ -149,24 +166,3 @@ def train_hausman_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
         logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(epochs))
 
     return model
-
-
-def wrapped_hausman(a0, a1, ignore_samples, threshold):
-    def hausman_nll(pred, y):
-        with torch.no_grad():
-            idx_range = torch.arange(len(pred)).int().to(pred.device)
-            pos_idx = (pred > threshold) & (idx_range > ignore_samples)
-
-        a01 = (1-a0-a1)
-        a01_vec = torch.ones(pred.shape).float().to(pred.device)
-        a01_vec[pos_idx] = a01
-
-        a0_vec = torch.zeros(pred.shape).float().to(pred.device)
-        a0_vec[pos_idx] = a0
-
-        modified_prob = a0_vec + a01_vec * pred
-
-        return F.binary_cross_entropy(modified_prob, y.float())
-        # nll = -jnp.sum(y * jnp.log(a0+a01*phat) + (1-y) * jnp.log(1-a0-a01*phat))
-
-    return hausman_nll

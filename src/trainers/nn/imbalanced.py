@@ -5,9 +5,9 @@ import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.train.nn.utils import log_regular_losses
+from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
+from src.trainers.nn.utils import compute_loss
 
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import EditedNearestNeighbours, AllKNN

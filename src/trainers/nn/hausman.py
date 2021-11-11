@@ -1,20 +1,19 @@
 import copy
 import logging
-import numpy as np
+
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.str_formatting import SafeDict
+from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss, log_regular_losses
-from src.utils.train.nn.regular import train_regular_nn
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
 
-class AUMNNTrainer:
-    def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
+class HausmanNNTrainer:
+    def __init__(self, model_fn, seed, warm_start, update, optim_args, rate_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
         self._epochs = optim_args.epochs
@@ -27,8 +26,10 @@ class AUMNNTrainer:
         self._nesterov = optim_args.nesterov
         self._weight_decay = optim_args.weight_decay
 
+        self._a0 = rate_args.idv
+        self._a1 = 0.0
+
         self._optimizer = None
-        self._writer_prefix = "{type}/{update_num}/{name}"
         self._write = optim_args.log_tensorboard
 
         if self._write:
@@ -46,10 +47,9 @@ class AUMNNTrainer:
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
-                         self._epochs, self._early_stopping_iter, self._writer,
-                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
+                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, threshold):
         if not self._update:
             return model
 
@@ -58,51 +58,23 @@ class AUMNNTrainer:
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
-        auxiliary_model = self._model_fn(data_wrapper.dimension).to(model.device)
-        auxiliary_optimizer = create_optimizer(auxiliary_model.parameters(), self._optimizer_name, self._lr,
-                                               self._momentum, self._nesterov, self._weight_decay)
+        x_temp, y_temp = data_wrapper.get_init_train_data()
+        ignore_samples = len(x_temp)
 
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
-        x_update, y_update = data_wrapper.get_current_update_batch_corrupt()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        margins = train_aum(auxiliary_model, auxiliary_optimizer, x_train, y_train, x_val, y_val,
-                            self._epochs, self._early_stopping_iter,
-                            self._writer, self._writer_prefix.format_map(SafeDict(type="aum", update_num=update_num)), self._write)
-
-        relevant_margins = torch.stack(margins, dim=1)
-        aum = torch.mean(relevant_margins, dim=1)[-len(x_update):]
-
-        with torch.no_grad():
-            auxiliary_out = auxiliary_model(scaler.transform(x_update))
-            auxiliary_pred = torch.max(auxiliary_out, 1)[1].detach().cpu().numpy()
-
-        fpr = rate_tracker.get_rates()["fpr"][-1]
-        pos_indices = (auxiliary_pred == 1)
-        sorted_indices = torch.argsort(aum).detach().cpu().numpy()
-
-        potentially_mislabeled_samples = int(fpr * np.sum(pos_indices))
-        bad_indices = sorted_indices[pos_indices[sorted_indices]][:potentially_mislabeled_samples]
-        good_indices = np.arange(len(x_update))
-        good_indices = np.setdiff1d(good_indices, bad_indices)
-
-        x_update, y_update = x_update[good_indices], y_update[good_indices]
-        data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
-
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
-        x_train = scaler.transform(x_train)
-
-        model = train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+        model = train_hausman_nn(model, self._optimizer, wrapped_hausman(self._a0, self._a1, ignore_samples, threshold), x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
-                                 self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)))
+                                 "train_loss/{}".format(update_num), self._write)
 
         return model
 
 
-def train_aum(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix,
-              write=True):
+def train_hausman_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix,
+                  write=True):
     model.train()
     losses = []
     best_val_loss = float("inf")
@@ -114,8 +86,6 @@ def train_aum(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_st
     no_train_improvement = 0
     no_val_improvement = 0
 
-    margins = []
-
     x_train = torch.from_numpy(x_train).float().to(model.device)
     y_train = torch.from_numpy(y_train).long().to(model.device)
 
@@ -123,21 +93,16 @@ def train_aum(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_st
     y_val = torch.from_numpy(y_val).long().to(model.device)
 
     while not done:
-        out = model(x_train)
-        train_loss = F.cross_entropy(out, y_train)
+        out = model.predict_proba_grad(x_train)[:, 1]
+        train_loss = loss_fn(out, y_train)
         train_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
         losses.append(train_loss.item())
 
         with torch.no_grad():
-            logits = out
-            labels = y_train
-            margin = compute_margin(logits, labels)
-            margins.append(margin)
-
-        with torch.no_grad():
-            val_loss = compute_loss(model, x_val, y_val, F.cross_entropy)
+            val_out = model(x_val)
+            val_loss = F.cross_entropy(val_out, y_val)
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Train Loss: {} | Val Loss: {}".format(epoch, train_loss.item(), val_loss.item()))
@@ -182,14 +147,25 @@ def train_aum(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_st
     if not done:
         logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(epochs))
 
-    return margins
+    return model
 
 
-def compute_margin(logits: torch.Tensor, labels: torch.Tensor):
-    logits = logits.clone()
-    label_logits = logits[torch.arange(len(labels)).to(labels.device), labels].clone()
-    logits[torch.arange(len(labels)).to(labels.device), labels] = 0
+def wrapped_hausman(a0, a1, ignore_samples, threshold):
+    def hausman_nll(pred, y):
+        with torch.no_grad():
+            idx_range = torch.arange(len(pred)).int().to(pred.device)
+            pos_idx = (pred > threshold) & (idx_range > ignore_samples)
 
-    top_logits = torch.topk(logits, k=1, dim=1, largest=True).values.view(-1)
+        a01 = (1-a0-a1)
+        a01_vec = torch.ones(pred.shape).float().to(pred.device)
+        a01_vec[pos_idx] = a01
 
-    return label_logits - top_logits
+        a0_vec = torch.zeros(pred.shape).float().to(pred.device)
+        a0_vec[pos_idx] = a0
+
+        modified_prob = a0_vec + a01_vec * pred
+
+        return F.binary_cross_entropy(modified_prob, y.float())
+        # nll = -jnp.sum(y * jnp.log(a0+a01*phat) + (1-y) * jnp.log(1-a0-a01*phat))
+
+    return hausman_nll

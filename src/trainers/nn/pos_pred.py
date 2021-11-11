@@ -1,20 +1,16 @@
-import copy
 import logging
 
-import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.train.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
-from src.utils.train.nn.regular import train_regular_nn
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
 
-class LowConfidenceNNTrainer:
+class PosPredNNTrainer:
     def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
@@ -55,18 +51,11 @@ class LowConfidenceNNTrainer:
         x_update, y_update = data_wrapper.get_current_update_batch_corrupt()
 
         with torch.no_grad():
-            prob = model.predict_proba(scaler.transform(x_update))
-            pred = prob[:, 1] > threshold
+            out = model.predict_proba(scaler.transform(x_update))
+            pred = out[:, 1] > threshold
 
-        sorted_indices = np.argsort(prob[:, 1])[pred]
-        good_indices = np.arange(len(y_update))
-        n_neg = np.sum(y_update == 0)
-        num_corrupted = n_neg / (1 - rate_tracker.get_rates()["fpr"][-1]) - n_neg
-        num_corrupted = int(num_corrupted)
-        bad_indices = sorted_indices[:num_corrupted]
-        good_indices = np.setdiff1d(good_indices, bad_indices)
-
-        x_update, y_update = x_update[good_indices], y_update[good_indices]
+        neg_indices = (pred == 0)
+        x_update, y_update = x_update[neg_indices], y_update[neg_indices]
         data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
 
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()

@@ -1,15 +1,11 @@
-import copy
 import logging
 
 import numpy as np
 import torch
-from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.train.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
-from src.utils.train.nn.regular import train_regular_nn
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 

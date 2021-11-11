@@ -1,21 +1,18 @@
 import copy
 import logging
 
-import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.losses import PULoss, PULossCombined
-from src.utils.train.nn.utils import log_regular_losses
+from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
-from src.utils.train.nn.regular import train_regular_nn
+from src.trainers.nn.utils import compute_loss
 
 logger = logging.getLogger(__name__)
 
 
-class PUNNTrainer:
+class RegularNNTrainer:
     def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
@@ -28,8 +25,6 @@ class PUNNTrainer:
         self._momentum = optim_args.momentum
         self._nesterov = optim_args.nesterov
         self._weight_decay = optim_args.weight_decay
-        self._nnpu = optim_args.nnpu
-        self._combined_loss = optim_args.combined_loss
 
         self._optimizer = None
         self._write = optim_args.log_tensorboard
@@ -51,6 +46,16 @@ class PUNNTrainer:
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
+    def specific_data_fit(self, model, data_wrapper, x, y, scaler):
+        self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
+                                           self._lr, self._momentum, self._nesterov, self._weight_decay)
+        x_val, y_val = data_wrapper.get_validation_data()
+
+        x, x_val = scaler.transform(x), scaler.transform(x_val)
+
+        train_regular_nn(model, self._optimizer, F.cross_entropy, x, y, x_val, y_val,
+                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
+
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
@@ -60,32 +65,20 @@ class PUNNTrainer:
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
-        x_temp, y_temp = data_wrapper.get_init_train_data()
-        ignore_samples = len(x_temp)
-        prior = np.sum(y_temp) / float(len(y_temp))
-        prior = np.array(1 - prior)
-
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        if self._combined_loss:
-            train_loss_fn = PULossCombined(prior=prior, ignore_samples=ignore_samples, nnPU=self._nnpu)
-        else:
-            train_loss_fn = PULoss(prior=prior, nnPU=self._nnpu)
-
-        val_loss_fn = PULoss(prior=prior, nnPU=self._nnpu)
-
-        model = train_pu_nn(model, self._optimizer, train_loss_fn, val_loss_fn, x_train, y_train, x_val, y_val,
+        model = train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                                  self._epochs, self._early_stopping_iter, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 
         return model
 
 
-def train_pu_nn(model, optimizer, train_loss_fn, val_loss_fn, x_train, y_train,
-                x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix, write=True):
+def train_regular_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix,
+                  write=True):
     model.train()
     losses = []
     best_val_loss = float("inf")
@@ -105,23 +98,14 @@ def train_pu_nn(model, optimizer, train_loss_fn, val_loss_fn, x_train, y_train,
 
     while not done:
         out = model(x_train)
-        probs = F.softmax(out, dim=1)[:, 1]
-        out = out[:, 1]
-
-        train_loss = train_loss_fn(out, probs, y_train)
+        train_loss = loss_fn(out, y_train)
         train_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
         losses.append(train_loss.item())
 
         with torch.no_grad():
-            # val_out = model(x_val)
-            # val_loss = F.cross_entropy(val_out, y_val)
-            val_out = model(x_val)
-            val_probs = F.softmax(val_out, dim=1)[:, 1]
-            val_out = val_out[:, 1]
-
-            val_loss = val_loss_fn(val_out, val_probs, y_val)
+            val_loss = compute_loss(model, x_val, y_val, loss_fn)
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Train Loss: {} | Val Loss: {}".format(epoch, train_loss.item(), val_loss.item()))

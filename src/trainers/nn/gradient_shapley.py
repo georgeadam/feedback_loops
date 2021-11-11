@@ -6,12 +6,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.str_formatting import SafeDict
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.regular import train_regular_nn
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
 
-class DataShapleyNNTrainer:
+class GradientShapleyNNTrainer:
     def __init__(self, model_fn, seed, warm_start, update, regular_optim_args, shapley_optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
@@ -51,11 +51,11 @@ class DataShapleyNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        train_regular_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+        train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
-                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
+                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
-    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num):
+    def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
             return model
 
@@ -67,9 +67,9 @@ class DataShapleyNNTrainer:
         else:
             new_model = model
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
-        x_update, y_update = data_wrapper.get_current_update_batch()
+        x_update, y_update = data_wrapper.get_current_update_batch_corrupt()
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
         eval_fn = test_performance(x_val, y_val, model.device)
@@ -95,14 +95,15 @@ class DataShapleyNNTrainer:
         good_indices = np.setdiff1d(good_indices, bad_indices)
 
         x_update, y_update = x_update[good_indices], y_update[good_indices]
-        data_wrapper.store_current_update_batch(x_update, y_update)
+        data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
 
-        x_train, y_train = data_wrapper.get_all_data_for_model_fit()
+        x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_train = scaler.transform(x_train)
 
-        new_model = train_regular_nn(new_model, self._optimizer, x_train, y_train, x_val, y_val,
+        new_model = train_regular_nn(new_model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                                      self._epochs_regular, self._early_stopping_iter_regular, self._writer,
-                                     self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)))
+                                     self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)),
+                                     self._write)
 
         return new_model
 

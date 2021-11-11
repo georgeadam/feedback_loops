@@ -5,14 +5,14 @@ import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.utils.train.nn.utils import log_regular_losses
+from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train.nn.utils import compute_loss
+from src.trainers.nn.utils import compute_loss
 
 logger = logging.getLogger(__name__)
 
 
-class RegularNNTrainer:
+class DRONNTrainer:
     def __init__(self, model_fn, seed, warm_start, update, optim_args, **kwargs):
         self._warm_start = warm_start
         self._update = update
@@ -25,6 +25,8 @@ class RegularNNTrainer:
         self._momentum = optim_args.momentum
         self._nesterov = optim_args.nesterov
         self._weight_decay = optim_args.weight_decay
+
+        self._loss_fn = DROLoss(optim_args.eta, optim_args.k)
 
         self._optimizer = None
         self._write = optim_args.log_tensorboard
@@ -43,18 +45,8 @@ class RegularNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
-                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
-
-    def specific_data_fit(self, model, data_wrapper, x, y, scaler):
-        self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
-                                           self._lr, self._momentum, self._nesterov, self._weight_decay)
-        x_val, y_val = data_wrapper.get_validation_data()
-
-        x, x_val = scaler.transform(x), scaler.transform(x_val)
-
-        train_regular_nn(model, self._optimizer, F.cross_entropy, x, y, x_val, y_val,
-                         self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
+        train_dro_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+                         self._epochs, self._early_stopping_iter, self._loss_fn, self._writer, "train_loss/0", self._write)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
@@ -70,14 +62,14 @@ class RegularNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        model = train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
-                                 self._epochs, self._early_stopping_iter, self._writer,
+        model = train_dro_nn(model, self._optimizer, x_train, y_train, x_val, y_val,
+                                 self._epochs, self._early_stopping_iter, self._loss_fn, self._writer,
                                  "train_loss/{}".format(update_num), self._write)
 
         return model
 
 
-def train_regular_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, writer, writer_prefix,
+def train_dro_nn(model, optimizer, x_train, y_train, x_val, y_val, epochs, early_stopping_iter, loss_fn, writer, writer_prefix,
                   write=True):
     model.train()
     losses = []
@@ -105,7 +97,7 @@ def train_regular_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
         losses.append(train_loss.item())
 
         with torch.no_grad():
-            val_loss = compute_loss(model, x_val, y_val, loss_fn)
+            val_loss = compute_loss(model, x_val, y_val, F.cross_entropy)
 
         if epoch % 100 == 0:
             logger.info("Epoch: {} | Train Loss: {} | Val Loss: {}".format(epoch, train_loss.item(), val_loss.item()))
@@ -151,3 +143,23 @@ def train_regular_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
         logger.info("Stopped after: {} epochs, but could have kept improving loss.".format(epochs))
 
     return model
+
+
+class DROLoss(torch.nn.Module):
+    def __init__(self, eta, k):
+        super(DROLoss, self).__init__()
+        self.eta = eta
+        self.k = k
+        self.logsig = torch.nn.LogSigmoid()
+        self.relu = torch.nn.ReLU()
+
+    def forward(self, x, y):
+        bce_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
+        bce = bce_fn(x[:, 1], y.float())
+
+        if self.k > 0:
+            bce = self.relu(bce - self.eta)
+            bce = bce ** self.k
+            return bce.mean()
+        else:
+            return bce.mean()

@@ -9,9 +9,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.str_formatting import SafeDict
 from src.utils.optimizer import create_optimizer
-from src.utils.data.wrappers.generic import DataMiniBatcher
-from src.utils.train.nn.utils import compute_loss
-from src.utils.train.nn.regular import train_regular_nn
+from src.data.wrappers import DataMiniBatcher
+from src.trainers.nn.utils import compute_loss
+from src.utils.train import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
