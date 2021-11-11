@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.str_formatting import SafeDict
 from src.utils.optimizer import create_optimizer
-from src.utils.train import train_regular_nn
+from .regular import train_regular_nn
 
 logger = logging.getLogger(__name__)
 

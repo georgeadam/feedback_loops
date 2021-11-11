@@ -5,9 +5,9 @@ import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from src.trainers.nn.utils import log_regular_losses
 from src.utils.optimizer import create_optimizer
-from src.utils.train import train_regular_nn
+from .utils import log_regular_losses
+from .regular import train_regular_nn
 
 logger = logging.getLogger(__name__)
 
