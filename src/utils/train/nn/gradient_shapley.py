@@ -53,7 +53,7 @@ class GradientShapleyNNTrainer:
 
         train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                          self._epochs_regular, self._early_stopping_iter_regular, self._writer,
-                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)))
+                         self._writer_prefix.format_map(SafeDict(type="regular", update_num=0)), self._write)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
         if not self._update:
@@ -102,7 +102,8 @@ class GradientShapleyNNTrainer:
 
         new_model = train_regular_nn(new_model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
                                      self._epochs_regular, self._early_stopping_iter_regular, self._writer,
-                                     self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)))
+                                     self._writer_prefix.format_map(SafeDict(type="regular", update_num=update_num)),
+                                     self._write)
 
         return new_model
 

@@ -155,6 +155,12 @@ def get_data_wrapper_fn(args):
                                     ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
                                     agg_data=args.update_params.agg_data, tyl=args.data.tyl,
                                     uyl=args.data.uyl, next_year=args.data.next_year)
+        elif args.optim.type == "nn_low_conf":
+            constructor = TemporalDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train,
+                                    ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
+                                    agg_data=args.update_params.agg_data, tyl=args.data.tyl,
+                                    uyl=args.data.uyl, next_year=args.data.next_year)
     else:
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = StaticDataWrapper
@@ -240,6 +246,11 @@ def get_data_wrapper_fn(args):
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_imbalanced":
+            constructor = StaticDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    num_updates=args.data.num_updates)
+        elif args.optim.type == "nn_low_conf":
             constructor = StaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
