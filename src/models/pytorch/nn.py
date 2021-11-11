@@ -13,6 +13,7 @@ class NN(torch.nn.Module, BaseEstimator):
         self.layers = self._create_layers(hidden_layers)
         self.device = device
         self.classes_ = np.array([0, 1])
+        self._threshold = 0.5
 
     def forward(self, x):
         if type(x) is np.ndarray:
@@ -88,3 +89,11 @@ class NN(torch.nn.Module, BaseEstimator):
 
     def fit(self, *args):
         pass
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, new_threshold):
+        self._threshold = new_threshold

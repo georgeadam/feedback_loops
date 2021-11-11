@@ -12,6 +12,7 @@ class NN_LFE(MetaModule):
         self.num_features = num_features
         self.layers = self._create_layers(hidden_layers, device)
         self.device = device
+        self._threshold = 0.5
 
     def forward(self, x):
         for i in range(len(self.layers) - 1):
@@ -56,3 +57,11 @@ class NN_LFE(MetaModule):
             fc = nn.ModuleList(fc)
 
         return fc
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, new_threshold):
+        self._threshold = new_threshold

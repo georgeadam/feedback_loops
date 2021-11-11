@@ -5,5 +5,6 @@ from .utils import evaluate
 def random_forest(num_features: int=2, class_weight: str=None):
     model = ensemble.RandomForestClassifier(class_weight=class_weight, n_jobs=4)
     model.evaluate = evaluate
+    model.threshold = 0.5
 
     return model
