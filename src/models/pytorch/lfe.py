@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from models.pytorch.meta import MetaLinear, MetaModule
+from .meta import MetaLinear, MetaModule
 from torch import nn as nn
 
 
