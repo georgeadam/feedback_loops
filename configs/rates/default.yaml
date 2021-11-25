@@ -1,6 +1,3 @@
 ddr: fpr # Dynamic desired rate
 idr: fpr # Initial desired rate
 idv: 0.2 # Initial desired rate
-train_lambda: 1.0
-clinician_fpr: 0.0
-recover_prob: 0.1
