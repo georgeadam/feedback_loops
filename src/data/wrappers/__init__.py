@@ -1,4 +1,4 @@
-from .generic import StaticDataWrapper, TemporalDataWrapper
+from .generic import StaticDataWrapper, TemporalDataWrapper, DataMiniBatcher
 from .lfe import LFEStaticDataWrapper, LFETemporalDataWrapper
 from .lre import LREStaticDataWrapper, LRETemporalDataWrapper, LREValidationSizeTesting, LRETrainDataAsValidationStatic, LRETrainDataAsValidationTemporal
 from .aum import AUMStaticDataWrapper, AUMTemporalDataWrapper
