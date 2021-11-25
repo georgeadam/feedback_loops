@@ -1,13 +1,13 @@
 import hydra
 import os
 
-from src.scripts.helpers.generic.loops import call_update_loop
-from src.scripts.helpers.updates.result_formatting import get_result_formatting_fn
-from src.utils.data import get_data_fn, get_data_wrapper_fn
-from src.utils.model import get_model_fn
-from src.utils.update import get_update_fn
+from src.scripts.experiment.loop import call_experiment_loop
+from src.scripts.experiment.formatting import get_result_formatting_fn
+from src.data import get_data_fn, get_data_wrapper_fn
+from src.models import get_model_fn
+from src.scripts.experiment.update import get_update_fn
 from src.utils.save import CSV_FILE
-from src.utils.train import get_trainer
+from src.trainers import get_trainer
 
 from omegaconf import DictConfig
 from settings import ROOT_DIR
@@ -21,15 +21,16 @@ def main(args: DictConfig):
 
     inner_data_fn = get_data_fn(args)
     data_fn = lambda: inner_data_fn(args.data.n_train, args.data.n_val, args.data.n_update, args.data.n_test, args.data.num_features)
+    data_wrapper_fn = get_data_wrapper_fn(args)
 
     model_fn = get_model_fn(args)
     trainer = get_trainer(args)
+    update_fn = get_update_fn(args)
+
     result_formatting_fn = get_result_formatting_fn(args.data.temporal)
     rates = {}
-    update_fn = get_update_fn(args)
-    data_wrapper_fn = get_data_wrapper_fn(args)
 
-    temp_rates, _ = call_update_loop(args, data_fn, data_wrapper_fn, model_fn, trainer, update_fn)
+    temp_rates, _ = call_experiment_loop(args, data_fn, data_wrapper_fn, model_fn, trainer, update_fn)
     rates[args.update_params.type] = temp_rates
     data = result_formatting_fn(rates, args.data.tyl, args.data.uyl)
 
