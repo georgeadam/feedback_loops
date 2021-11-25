@@ -135,7 +135,9 @@ class LFENNTrainer:
             return model
 
         if not self._warm_start:
+            threshold = model.threshold
             model = self._model_fn(data_wrapper.dimension).to(model.device)
+            model.threshold = threshold
             self._optimizer_lre = create_optimizer(model.params(), self._optimizer_name_lfe,
                                                    self._lr_lfe, self._momentum_lfe,
                                                    self._nesterov_lfe, self._weight_decay_lfe)

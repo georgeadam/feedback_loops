@@ -60,7 +60,9 @@ class GradientShapleyNNTrainer:
             return model
 
         if not self._warm_start:
+            threshold = model.threshold
             new_model = self._model_fn(data_wrapper.dimension).to(model.device)
+            new_model.threshold = threshold
             self._optimizer = create_optimizer(new_model.parameters(), self._optimizer_name_regular,
                                                self._lr_regular, self._momentum_regular, self._nesterov_regular,
                                                self._weight_decay_regular)

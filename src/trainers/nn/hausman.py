@@ -54,7 +54,9 @@ class HausmanNNTrainer:
             return model
 
         if not self._warm_start:
+            threshold = model.threshold
             model = self._model_fn(data_wrapper.dimension).to(model.device)
+            model.threshold = threshold
             self._optimizer = create_optimizer(model.parameters(), self._optimizer_name,
                                                self._lr, self._momentum, self._nesterov, self._weight_decay)
 
