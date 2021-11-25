@@ -1,2 +1,2 @@
 type: constant_trust
-clinician_trust: 0.5
+expert_trust: 0.5

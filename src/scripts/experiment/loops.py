@@ -21,10 +21,10 @@ def get_dyanmic_desired_value(ddr: str, rates: Dict[str, List[float]]) -> Option
     return None
 
 
-def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelFn=None, trainer_fn=None,
-                      update_fn: Callable=None, idr: str= "fpr", idv: float=0.1,
-                      seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
-                      normalize: bool=True, recover_prob: float=1.0, return_model: bool=False,  **kwargs) -> (ResultDict, List):
+def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelFn=None, trainer_fn=None,
+                    update_fn: Callable=None, idr: str= "fpr", idv: float=0.1,
+                    seeds: int=1, clinician_fpr: float=0.0, clinician_trust: float=1.0,
+                    normalize: bool=True, recover_prob: float=1.0, return_model: bool=False, **kwargs) -> (ResultDict, List):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
     models = []
@@ -33,6 +33,7 @@ def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: Mode
         print("Seed: {}".format(seed))
         set_seed(seed)
 
+        # Create data, model, and trainer
         data, cols = data_fn()
         data_wrapper = data_wrapper_fn(data)
         model = model_fn(num_features=data_wrapper.dimension)
@@ -45,6 +46,7 @@ def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: Mode
         scaler = get_scaler(normalize, cols)
         scaler.fit(x_train)
 
+        # Fit model
         set_seed(seed)
         trainer.initial_fit(model, data_wrapper, scaler)
         y_prob = model.predict_proba(scaler.transform(x_thresh))
@@ -63,6 +65,7 @@ def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: Mode
 
         ddv = get_dyanmic_desired_value(data_wrapper.get_ddr(), rate_tracker.get_rates())
 
+        # Update model
         model = update_fn(model, data_wrapper, rate_tracker, trainer=trainer,
                           ddv=ddv, clinician_fpr=clinician_fpr, clinician_trust=clinician_trust,
                           scaler=scaler, recover_prob=recover_prob)
@@ -79,8 +82,8 @@ def train_update_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: Mode
 
 def call_update_loop(args: DictConfig, data_fn: Callable, data_wrapper_fn: Callable, model_fn: Callable,
                      trainer, update_fn: Callable) -> (ResultDict, ResultDict):
-    return train_update_loop(data_fn, data_wrapper_fn, model_fn, trainer, update_fn,
-                             idr=args.rates.idr, idv=args.rates.idv, seeds=args.misc.seeds,
-                             clinician_fpr=args.rates.clinician_fpr,
-                             clinician_trust=args.trust.clinician_trust, normalize=args.data.normalize,
-                             recover_prob=args.rates.recover_prob, return_model=args.misc.return_model)
+    return experiment_loop(data_fn, data_wrapper_fn, model_fn, trainer, update_fn,
+                           idr=args.rates.idr, idv=args.rates.idv, seeds=args.misc.seeds,
+                           clinician_fpr=args.rates.clinician_fpr,
+                           clinician_trust=args.trust.clinician_trust, normalize=args.data.normalize,
+                           recover_prob=args.rates.recover_prob, return_model=args.misc.return_model)
