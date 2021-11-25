@@ -4,3 +4,4 @@ include_train: True
 do_update: True
 warm_start: False
 type: bias_oscillation_all_data_refit
+corruption_prob: 0.2

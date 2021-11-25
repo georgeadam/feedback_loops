@@ -1,6 +1,8 @@
 agg_data: False
-feedback: True
+feedback: amplify
 include_train: False
 do_update: True
 warm_start: True
 type: feedback_past_year_update
+fp_corruption_prob: 1.0
+fn_corruption_prob: 0.0

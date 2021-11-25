@@ -1,5 +1,5 @@
 agg_data: True
-feedback: False
+feedback: none
 include_train: False
 do_update: True
 warm_start: True
