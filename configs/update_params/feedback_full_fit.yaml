@@ -4,3 +4,5 @@ include_train: True
 do_update: True
 warm_start: False
 type: feedback_full_fit
+fp_corruption_prob: 1.0
+fn_corruption_prob: 0.0
