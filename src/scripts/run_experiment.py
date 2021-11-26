@@ -14,7 +14,7 @@ from settings import ROOT_DIR
 
 os.chdir(ROOT_DIR)
 config_path = os.path.join(ROOT_DIR, "configs")
-@hydra.main(config_path=config_path, config_name="update_types")
+@hydra.main(config_path=config_path, config_name="run_experiment")
 def main(args: DictConfig):
     print(args.pretty())
     print("Saving to: {}".format(os.getcwd()))

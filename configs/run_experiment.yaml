@@ -1,6 +1,7 @@
 # @package _global_
 defaults:
   - data: temporal
+  - expert: random_error
   - misc: default
   - model: xgboost
   - rates: default
