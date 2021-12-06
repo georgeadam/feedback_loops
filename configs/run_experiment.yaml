@@ -6,7 +6,7 @@ defaults:
   - model: xgboost
   - rates: default
   - trust: default
-  - optim: lr
+  - optim: sklearn_regular
   - update_params: feedback_full_fit
 hydra:
   run:

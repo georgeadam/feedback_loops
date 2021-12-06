@@ -1,8 +1,9 @@
 from numba import jit
 import numpy as np
+import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_score
 
-from typing import Dict, Tuple, SupportsFloat
+from typing import List, Dict, Tuple, SupportsFloat
 
 from src.utils.detection import detect_feedback_loop
 from src.utils.typing import Model, Transformer
@@ -126,6 +127,16 @@ def fpr(y: np.ndarray, y_pred: np.ndarray):
     return fpr
 
 
+def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, scaler: Transformer):
+    y_prob = model.predict_proba(scaler.transform(x))
+    y_pred = y_prob[:, 1] > model.threshold
+
+    fp_idx = np.logical_and(y == 0, y_pred == 1)
+    neg = np.sum(y == 0)
+
+    return float(np.sum(fp_idx) / neg)
+
+
 class RateTracker():
     def __init__(self):
         self._rates = {}
@@ -148,11 +159,26 @@ class RateTracker():
         self._rates["detection"][-1] = p
 
 
-def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, scaler: Transformer):
-    y_prob = model.predict_proba(scaler.transform(x))
-    y_pred = y_prob[:, 1] > model.threshold
+class PredictionTracker():
+    def __init__(self):
+        self._predictions = {"y": [],"prob": [], "pred": [], "label": [], "update_num": [], "threshold": []}
 
-    fp_idx = np.logical_and(y == 0, y_pred == 1)
-    neg = np.sum(y == 0)
+    def get_predictions(self):
+        return self._predictions
 
-    return float(np.sum(fp_idx) / neg)
+    def update_predictions(self, y, pred, prob, update_num, threshold):
+        self._predictions["prob"] += list(prob)
+        self._predictions["pred"] += list(pred)
+        self._predictions["y"] += list(y)
+        self._predictions["update_num"] += [update_num] * len(y)
+        self._predictions["threshold"] += [threshold] * len(y)
+
+
+def create_empty_rates() -> Dict[str, List]:
+    return {"fpr": [], "tpr": [], "fnr": [], "tnr": [], "precision": [], "recall": [], "f1": [], "auc": [],
+            "loss": [], "aupr": [], "fp_conf": [], "pos_conf": [], "fp_count": [], "total_samples": [],
+            "fp_prop": [], "acc": [], "detection": [], "seed": []}
+
+
+def create_empty_predictions() -> Dict[str, List]:
+    return {"y": [],"prob": [], "pred": [], "label": [], "update_num": [], "threshold": [], "seed": []}

@@ -1,2 +1,4 @@
 seeds: 1
 return_model: False
+save_rates: True
+save_predictions: False

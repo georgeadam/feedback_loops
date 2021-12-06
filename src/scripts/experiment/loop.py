@@ -1,8 +1,7 @@
 import numpy as np
-from sklearn.model_selection import train_test_split
 
-from src.utils.metrics import compute_all_rates, RateTracker
-from src.utils.misc import create_empty_rates
+from src.utils.metrics import RateTracker, PredictionTracker
+from src.utils.metrics import create_empty_rates, create_empty_predictions
 from src.utils.preprocess import get_scaler
 from src.utils.rand import set_seed
 from src.scripts.experiment.threshold import find_threshold
@@ -26,6 +25,7 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
                     seeds: int=1, normalize: bool=True, return_model: bool=False, **kwargs) -> (ResultDict, List):
     seeds = np.arange(seeds)
     rates = create_empty_rates()
+    predictions = create_empty_predictions()
     models = []
 
     for seed in seeds:
@@ -62,12 +62,16 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         rate_tracker = RateTracker()
         rate_tracker.update_rates(y_eval, y_pred, y_prob)
 
+        prediction_tracker = PredictionTracker()
+        prediction_tracker.update_predictions(y_eval, y_pred, y_prob, 0, model.threshold)
+
         ddv = get_dyanmic_desired_value(data_wrapper.get_ddr(), rate_tracker.get_rates())
 
         # Update model
-        model = update_fn(model, data_wrapper, rate_tracker, trainer=trainer,
+        model = update_fn(model, data_wrapper, rate_tracker, prediction_tracker, trainer=trainer,
                           ddv=ddv, scaler=scaler)
         temp_rates = rate_tracker.get_rates()
+        temp_predictions = prediction_tracker.get_predictions()
 
         if return_model:
             models.append(model.to("cpu"))
@@ -75,7 +79,14 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         for key in temp_rates.keys():
             rates[key].append(temp_rates[key])
 
-    return rates, models
+        rates["seed"] += [[seed] * len(temp_rates[list(temp_rates.keys())[0]])]
+
+        for key in temp_predictions.keys():
+            predictions[key].append(temp_predictions[key])
+
+        predictions["seed"] += [[seed] * len(temp_predictions[list(temp_predictions.keys())[0]])]
+
+    return rates, predictions, models
 
 
 def call_experiment_loop(args: DictConfig, data_fn: Callable, data_wrapper_fn: Callable, model_fn: Callable,

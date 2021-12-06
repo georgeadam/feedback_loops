@@ -28,7 +28,7 @@ def get_update_fn(args):
                    update=args.update_params.do_update)
 
 
-def update_model_general(model, data_wrapper, rate_tracker, trainer=None, corruptor=None, expert=None, trust_generator=None,
+def update_model_general(model, data_wrapper, rate_tracker, prediction_tracker, trainer=None, corruptor=None, expert=None, trust_generator=None,
                          update: bool = True,  ddv: Optional[float] = None, scaler: Transformer = None):
     x_train, y_train = data_wrapper.get_train_data()
 
@@ -49,7 +49,7 @@ def update_model_general(model, data_wrapper, rate_tracker, trainer=None, corrup
         model.threshold = refit_threshold(model, data_wrapper, ddv, scaler, update)
 
         x_eval, y_eval = data_wrapper.get_eval_data(update_num)
-        track_performance(model, rate_tracker, x_eval, y_eval, scaler)
+        track_performance(model, rate_tracker, prediction_tracker, x_eval, y_eval, scaler, update_num)
 
         data_wrapper.accumulate_update_data()
         rate_tracker.update_detection(y_train, data_wrapper.get_cumulative_update_data()[1])
@@ -82,19 +82,21 @@ def compute_model_pred(new_model, scaler, x, y):
     return model_pred, model_prob
 
 
-def track_performance(new_model: Model, rate_tracker, x_eval: np.ndarray, y_eval: np.ndarray, scaler: Transformer):
-    if new_model.threshold is None:
-        eval_prob = new_model.predict_proba(scaler.transform(x_eval))
-        eval_pred = new_model.predict(scaler.transform(x_eval))
+def track_performance(model: Model, rate_tracker, prediction_tracker,
+                      x_eval: np.ndarray, y_eval: np.ndarray, scaler: Transformer, update_num):
+    if model.threshold is None:
+        eval_prob = model.predict_proba(scaler.transform(x_eval))
+        eval_pred = model.predict(scaler.transform(x_eval))
     else:
-        eval_prob = new_model.predict_proba(scaler.transform(x_eval))
+        eval_prob = model.predict_proba(scaler.transform(x_eval))
 
         if eval_prob.shape[1] > 1:
-            eval_pred = eval_prob[:, 1] >= new_model.threshold
+            eval_pred = eval_prob[:, 1] >= model.threshold
         else:
-            eval_pred = eval_prob[:, 0] >= new_model.threshold
+            eval_pred = eval_prob[:, 0] >= model.threshold
 
     rate_tracker.update_rates(y_eval, eval_pred, eval_prob)
+    prediction_tracker.update_predictions(y_eval, eval_pred, eval_prob, update_num, model.threshold)
 
 
 def refit_scaler(scaler: Transformer, data_wrapper, update: bool):

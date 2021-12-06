@@ -7,8 +7,9 @@ from typing import Dict
 CHECKPOINT_FILE = "checkpoint.pt"
 MODEL_FILE = "model.pt"
 WEIGHT_FILE = "weights.pt"
-CSV_FILE = "results.csv"
+RATE_FILE = "results.csv"
 MASKS_FILE = "masks.pkl"
+PREDICTION_FILE = "predictions.csv"
 
 def create_file_path(file_path: str):
     if not os.path.exists(os.path.dirname(file_path)):
