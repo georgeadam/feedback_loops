@@ -5,7 +5,7 @@ from settings import ROOT_DIR
 from typing import Any, Dict
 
 
-def load_support2cls_data() -> Dict[str, Any]:
+def load_support2cls_data(*args) -> Dict[str, Any]:
     df = pd.read_csv(os.path.join(ROOT_DIR, 'support2.csv'))
     one_hot_encode_cols = ['sex', 'dzclass', 'race', 'ca', 'income']
     target_variables = ['hospdead']

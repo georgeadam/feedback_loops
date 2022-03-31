@@ -10,6 +10,7 @@ from .datasets import load_support2cls_data
 from .datasets import generate_real_dataset_temporal
 from .datasets import generate_adult_dataset
 from .datasets import generate_credit_g_dataset
+from .datasets import generate_compas_dataset
 
 from .wrappers import StaticDataWrapper
 from .wrappers import TemporalDataWrapper
@@ -69,6 +70,8 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_adult_dataset(args.data.noise)
     elif args.data.type == "credit_g":
         return generate_credit_g_dataset(args.data.noise)
+    elif args.data.type == "compas":
+        return generate_compas_dataset(args.data.noise)
 
 
 def wrap_constructor(constructor, **kwargs):
@@ -161,6 +164,11 @@ def get_data_wrapper_fn(args):
                                     ddp=args.data.ddp, ddr=args.rates.ddr, tvp=args.data.tvp,
                                     agg_data=args.update_params.agg_data, tyl=args.data.tyl,
                                     uyl=args.data.uyl, next_year=args.data.next_year)
+        elif args.optim.type == "nn_soft_target":
+            constructor = TemporalDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    tyl=args.data.tyl, uyl=args.data.uyl, next_year=args.data.next_year)
     else:
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = StaticDataWrapper
@@ -202,7 +210,7 @@ def get_data_wrapper_fn(args):
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_pos_pred":
-            constructor = DataShapleyStaticDataWrapper
+            constructor = StaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
@@ -251,6 +259,11 @@ def get_data_wrapper_fn(args):
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
                                     num_updates=args.data.num_updates)
         elif args.optim.type == "nn_low_conf":
+            constructor = StaticDataWrapper
+            return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
+                                    ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,
+                                    num_updates=args.data.num_updates)
+        elif args.optim.type == "nn_soft_target":
             constructor = StaticDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train, ddp=args.data.ddp,
                                     ddr=args.rates.ddr, tvp=args.data.tvp, agg_data=args.update_params.agg_data,

@@ -11,6 +11,7 @@ from .support import load_support2cls_data
 from .temporal import generate_real_dataset_temporal
 from .adult import generate_adult_dataset
 from .credit_g import generate_credit_g_dataset
+from .compas import generate_compas_dataset
 
-STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2", "sklearn_noisy_update", "moons_noisy_update"]
+STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2", "sklearn_noisy_update", "moons_noisy_update", "compas", "adult", "credit"]
 TEMPORAL_DATA_TYPES = ["mimic_iv", "mimic_iv_12h", "mimic_iv_24h"]
