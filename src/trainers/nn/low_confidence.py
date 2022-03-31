@@ -55,7 +55,14 @@ class LowConfidenceNNTrainer:
             prob = model.predict_proba(scaler.transform(x_update))
             pred = prob[:, 1] > model.threshold
 
-        sorted_indices = np.argsort(prob[:, 1])[pred]
+        # we only want to drop low confidence samples which are both positively predicted and positively labeled
+        pos_label_indices = np.where(y_update == 1)[0]
+        pos_pred_indices = np.where(pred == 1)[0]
+        condition = np.intersect1d(pos_label_indices, pos_pred_indices)
+        sorted_indices = np.argsort(prob[:, 1])
+        temp = np.isin(sorted_indices, condition)
+        sorted_indices = sorted_indices[temp]
+
         good_indices = np.arange(len(y_update))
         n_neg = np.sum(y_update == 0)
         num_corrupted = n_neg / (1 - rate_tracker.get_rates()["fpr"][-1]) - n_neg
