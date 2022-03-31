@@ -2,7 +2,7 @@ import hydra
 import os
 
 from src.scripts.experiment.loop import call_experiment_loop
-from src.scripts.experiment.formatting import get_result_formatting_fn
+from src.scripts.experiment.formatting import get_rate_formatting_fn, get_prediction_formatting_fn
 from src.data import get_data_fn, get_data_wrapper_fn
 from src.models import get_model_fn
 from src.scripts.experiment.update import get_update_fn
@@ -27,14 +27,16 @@ def main(args: DictConfig):
     trainer = get_trainer(args)
     update_fn = get_update_fn(args)
 
-    result_formatting_fn = get_result_formatting_fn(args.data.temporal)
+    rate_formatting_fn = get_rate_formatting_fn(args.data.temporal)
+    prediction_formatting_fn = get_prediction_formatting_fn(args.data.temporal)
     rates = {}
     predictions = {}
 
     temp_rates, temp_predictions, _ = call_experiment_loop(args, data_fn, data_wrapper_fn, model_fn, trainer, update_fn)
     rates[args.update_params.type] = temp_rates
-    metrics = result_formatting_fn(rates, args.data.tyl, args.data.uyl)
-
+    predictions[args.update_params.type] = temp_predictions
+    metrics = rate_formatting_fn(rates, args.data.tyl, args.data.uyl)
+    predictions = prediction_formatting_fn(predictions, args.data.tyl, args.data.uyl)
 
     if args.misc.save_rates:
         rate_file_name = RATE_FILE

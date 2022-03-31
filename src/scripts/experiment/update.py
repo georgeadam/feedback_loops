@@ -96,7 +96,7 @@ def track_performance(model: Model, rate_tracker, prediction_tracker,
             eval_pred = eval_prob[:, 0] >= model.threshold
 
     rate_tracker.update_rates(y_eval, eval_pred, eval_prob)
-    prediction_tracker.update_predictions(y_eval, eval_pred, eval_prob, update_num, model.threshold)
+    prediction_tracker.update_predictions(y_eval, eval_pred.astype(int), eval_prob[:, 1], update_num, model.threshold)
 
 
 def refit_scaler(scaler: Transformer, data_wrapper, update: bool):
