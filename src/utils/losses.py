@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import copy
@@ -165,3 +166,18 @@ class PULossCombined(nn.Module):
             return -self.gamma * negative_risk + F.binary_cross_entropy(probs[train_idx], target[train_idx].float())
         else:
             return positive_risk + negative_risk + F.binary_cross_entropy(probs[train_idx], target[train_idx].float())
+
+
+class SoftCE(object):
+    def __init__(self):
+        self.logsoftmax = torch.nn.LogSoftmax(1)
+
+    def __call__(self, predictions, targets):
+        neg_indices = torch.where(targets == 0)[0]
+        pos_indices = torch.where(targets == 1)[0]
+
+        neg_loss = (1 - targets[neg_indices]) * self.logsoftmax(predictions)[neg_indices, 0]
+        pos_loss = (targets[pos_indices]) * self.logsoftmax(predictions)[pos_indices, 1]
+        loss = - torch.cat([neg_loss, pos_loss])
+
+        return torch.mean(loss)

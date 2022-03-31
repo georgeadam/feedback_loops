@@ -11,3 +11,4 @@ from .pu import PUNNTrainer
 from .balanced_reweight import BalancedReweightNNTrainer
 from .imbalanced import ImbalancedNNTrainer
 from .low_confidence import LowConfidenceNNTrainer
+from .soft_target import SoftTargetNNTrainer

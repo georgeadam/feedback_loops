@@ -1,6 +1,6 @@
 from .nn import RegularNNTrainer, AUMNNTrainer, LRENNTrainer, LFENNTrainer, GradientShapleyNNTrainer, \
     PosPredNNTrainer, MonteCarloShapleyNNTrainer, DRONNTrainer, HausmanNNTrainer, PUNNTrainer, BalancedReweightNNTrainer, \
-    ImbalancedNNTrainer, LowConfidenceNNTrainer
+    ImbalancedNNTrainer, LowConfidenceNNTrainer, SoftTargetNNTrainer
 from .traditional import TraditionalMLTrainer, PosPredSklearnTrainer
 
 
@@ -61,4 +61,7 @@ def get_trainer(args):
                        optim_args=args.optim)
     elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_low_conf":
         return wrapped(LowConfidenceNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
+                       optim_args=args.optim)
+    elif args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_soft_target":
+        return wrapped(SoftTargetNNTrainer, warm_start=args.update_params.warm_start, update=args.update_params.do_update,
                        optim_args=args.optim)
