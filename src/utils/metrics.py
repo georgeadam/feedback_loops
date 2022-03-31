@@ -1,7 +1,7 @@
 from numba import jit
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_score, balanced_accuracy_score
 
 from typing import List, Dict, Tuple, SupportsFloat
 
@@ -102,9 +102,11 @@ def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, ini
     fp_count = int(np.sum(fp_idx))
     total_samples = len(y)
 
+    youden = balanced_accuracy_score(y, y_pred)
+
     rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
              "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-             "total_samples": total_samples, "acc": acc, "detection": None}
+             "total_samples": total_samples, "acc": acc, "detection": None, "youden": youden}
 
     return rates
 
@@ -161,7 +163,7 @@ class RateTracker():
 
 class PredictionTracker():
     def __init__(self):
-        self._predictions = {"y": [],"prob": [], "pred": [], "label": [], "update_num": [], "threshold": []}
+        self._predictions = {"y": [], "prob": [], "pred": [], "update_num": [], "threshold": []}
 
     def get_predictions(self):
         return self._predictions
@@ -177,8 +179,8 @@ class PredictionTracker():
 def create_empty_rates() -> Dict[str, List]:
     return {"fpr": [], "tpr": [], "fnr": [], "tnr": [], "precision": [], "recall": [], "f1": [], "auc": [],
             "loss": [], "aupr": [], "fp_conf": [], "pos_conf": [], "fp_count": [], "total_samples": [],
-            "fp_prop": [], "acc": [], "detection": [], "seed": []}
+            "fp_prop": [], "acc": [], "detection": [], "seed": [], "youden": []}
 
 
 def create_empty_predictions() -> Dict[str, List]:
-    return {"y": [],"prob": [], "pred": [], "label": [], "update_num": [], "threshold": [], "seed": []}
+    return {"y": [],"prob": [], "pred": [], "update_num": [], "threshold": [], "seed": []}
