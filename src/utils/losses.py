@@ -4,6 +4,7 @@ import torch.nn as nn
 import copy
 import torch.nn.functional as F
 
+print(torch.__version__)
 
 class EWC(object):
     def __init__(self, model: nn.Module, x, y):
@@ -170,14 +171,20 @@ class PULossCombined(nn.Module):
 
 class SoftCE(object):
     def __init__(self):
-        self.logsoftmax = torch.nn.LogSoftmax(1)
+        self.loss_fn = torch.nn.BCEWithLogitsLoss()
+        self.sigmoid = torch.nn.Sigmoid()
 
     def __call__(self, predictions, targets):
-        neg_indices = torch.where(targets == 0)[0]
-        pos_indices = torch.where(targets == 1)[0]
+        # neg_indices = torch.where(targets == 0)[0]
+        # pos_indices = torch.where(targets == 1)[0]
+        #
+        # neg_loss = (1 - targets[neg_indices]) * self.logsoftmax(predictions)[neg_indices, 0]
+        # pos_loss = (targets[pos_indices]) * self.logsoftmax(predictions)[pos_indices, 1]
+        # loss = - torch.cat([neg_loss, pos_loss])
 
-        neg_loss = (1 - targets[neg_indices]) * self.logsoftmax(predictions)[neg_indices, 0]
-        pos_loss = (targets[pos_indices]) * self.logsoftmax(predictions)[pos_indices, 1]
-        loss = - torch.cat([neg_loss, pos_loss])
+        # return torch.mean(loss)
 
-        return torch.mean(loss)
+        probs = self.sigmoid(predictions).view(-1)
+        targets = targets.float()
+
+        return self.loss_fn(probs, targets)

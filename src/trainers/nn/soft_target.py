@@ -42,7 +42,7 @@ class SoftTargetNNTrainer:
 
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
 
-        train_regular_nn(model, self._optimizer, F.cross_entropy, x_train, y_train, x_val, y_val,
+        train_regular_nn(model, self._optimizer, SoftCE(), x_train, y_train, x_val, y_val,
                          self._epochs, self._early_stopping_iter, self._writer, "train_loss/0", self._write)
 
     def update_fit(self, model, data_wrapper, rate_tracker, scaler, update_num, *args):
@@ -60,12 +60,15 @@ class SoftTargetNNTrainer:
         # ablation version: (pred == 1)
         # soft_indices = (pred == 1)
         y_update = y_update.astype("float")
+
         y_update[soft_indices] = copy.deepcopy(out[soft_indices, 1])
         data_wrapper.store_current_update_batch_corrupt(x_update, y_update)
 
         x_train, y_train = data_wrapper.get_all_data_for_model_fit_corrupt()
         x_val, y_val = data_wrapper.get_validation_data()
         x_train, x_val = scaler.transform(x_train), scaler.transform(x_val)
+
+        print(y_train.dtype)
 
         if not self._warm_start:
             threshold = model.threshold
