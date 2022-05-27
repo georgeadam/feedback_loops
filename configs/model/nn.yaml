@@ -1,4 +1,5 @@
 type: nn
 hidden_layers: 4
 activation: "ReLU"
+dropout: 0.0
 device: "cpu"

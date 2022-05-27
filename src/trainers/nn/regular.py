@@ -92,20 +92,18 @@ def train_regular_nn(model, optimizer, loss_fn, x_train, y_train, x_val, y_val, 
     no_val_improvement = 0
 
     x_train = torch.from_numpy(x_train).float().to(model.device)
+
     if y_train.dtype == np.float64 or y_train.dtype == np.float32:
         y_train = torch.from_numpy(y_train).float().to(model.device)
     else:
         y_train = torch.from_numpy(y_train).long().to(model.device)
 
-    y_train.float()
-
     x_val = torch.from_numpy(x_val).float().to(model.device)
+
     if y_train.dtype == np.float64 or y_train.dtype == np.float32:
         y_val = torch.from_numpy(y_val).float().to(model.device)
     else:
         y_val = torch.from_numpy(y_val).long().to(model.device)
-
-    y_val = y_val.float()
 
     while not done:
         out = model(x_train)

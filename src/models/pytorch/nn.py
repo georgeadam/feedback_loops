@@ -5,12 +5,13 @@ import torch.nn
 
 
 class NN(torch.nn.Module, BaseEstimator):
-    def __init__(self, num_features, hidden_layers, activation, device):
+    def __init__(self, num_features, hidden_layers, activation, dropout=0.0, device="cpu"):
         super(NN, self).__init__()
 
         self.activation = getattr(torch.nn, activation)()
         self.num_features = num_features
         self.layers = self._create_layers(hidden_layers)
+        self.dropout = dropout
         self.device = device
         self.classes_ = np.array([0, 1])
         self._threshold = 0.5
@@ -22,6 +23,10 @@ class NN(torch.nn.Module, BaseEstimator):
         for i in range(len(self.layers) - 1):
             x = self.layers[i](x)
             x = self.activation(x)
+
+            if self.dropout > 0:
+                x = torch.nn.Dropout(self.dropout)(x)
+
 
         x = self.layers[-1](x)
 
