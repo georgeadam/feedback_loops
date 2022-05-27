@@ -1,4 +1,4 @@
-type: nn_aum
+type: nn_low_conf
 lr: 0.1
 momentum: 0.0
 nesterov: False
@@ -6,4 +6,4 @@ optimizer: SGD
 weight_decay: 0.0
 epochs: 2500
 early_stopping_iter: 20
-device: "cpu"
+log_tensorboard: False

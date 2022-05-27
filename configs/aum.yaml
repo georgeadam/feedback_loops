@@ -1,9 +1,0 @@
-defaults:
-  - data: non_temporal
-  - misc: aum
-  - model: aum
-  - optim: aum
-hydra:
-  run:
-    dir: results/aum/${now:%Y-%m-%d-%H-%M-%S.%f}/
-  output_subdir: .
