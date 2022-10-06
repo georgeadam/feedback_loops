@@ -1,28 +1,24 @@
-type: sklearn
+type: compas
 balanced: False
 temporal: False
 normalize: True
-iteration: non_temporal
+iteration: accumulating_window
 # Data splits
-n_train: 100
-n_val: 100
-n_update: 1000
-n_test: 1000
+n_train: 0.2
+n_val: 0.2
+n_update: 0.4
+n_test: 0.2
+window_size: 1000
+stride: 1000
 noise:
   train: 0.0
   val: 0.0
   future: 0.0
-next_year: True
 worst_case: False
-# Synthetic data only
-num_features: 2
-num_updates: 50
-# Moons data only
-start: 0.0
-end: 3.14
 # placeholders
 tyl: null
 uyl: null
+num_features: null
 ddp: all # Dynamic desired partition
 tvp: 0.2 # Threshold validation percentage
 batch_size: 50

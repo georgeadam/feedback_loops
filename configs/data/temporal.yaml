@@ -2,6 +2,7 @@ type: mimic_iv_demographic
 balanced: False
 temporal: True
 normalize: True
+iteration: temporal
 # Data splits
 n_train: 0.1
 n_val: 0.1

@@ -4,3 +4,5 @@ from .lre import LREStaticDataWrapper, LRETemporalDataWrapper, LREValidationSize
 from .aum import AUMStaticDataWrapper, AUMTemporalDataWrapper
 from .data_shapley import DataShapleyStaticDataWrapper, DataShapleyTemporalDataWrapper, MCShapleyDataWrapper, MCShapleyTrainDataAsValidation
 from .regular import RegularCSC2541BaselineDataWrapperStatic, RegularCSC2541BaselineDataWrapperTemporal
+from .sliding_window import SlidingWindowStaticWrapper
+from .accumulating_window import AccumulatingWindowStaticWrapper

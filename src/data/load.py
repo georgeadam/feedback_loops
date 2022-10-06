@@ -29,6 +29,8 @@ from .wrappers import RegularCSC2541BaselineDataWrapperStatic
 from .wrappers import RegularCSC2541BaselineDataWrapperTemporal
 from .wrappers import MCShapleyDataWrapper
 from .wrappers import MCShapleyTrainDataAsValidation
+from .wrappers import SlidingWindowStaticWrapper
+from .wrappers import AccumulatingWindowStaticWrapper
 
 from omegaconf import DictConfig
 from src.models import TRADITIONAL_ML_MODEL_TYPES, NN_MODEL_TYPES
@@ -72,6 +74,16 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_credit_g_dataset(args.data.noise)
     elif args.data.type == "compas":
         return generate_compas_dataset(args.data.noise)
+    elif args.data.type == "padchest":
+        if args.data.temporal:
+            return generate_image_dataset_temporal(load_padchest_data,
+                                                   args.data.balanced,
+                                                   tyl=args.data.tyl,
+                                                   model=args.model.type)
+        else:
+            return generate_image_dataset_static(load_padchest_data,
+                                                 args.data.balanced,
+                                                 model=args.model.type)
 
 
 def wrap_constructor(constructor, **kwargs):
@@ -82,7 +94,15 @@ def wrap_constructor(constructor, **kwargs):
 
 
 def get_data_wrapper_fn(args):
-    if args.data.temporal:
+    if args.data.iteration == "sliding_window":
+        constructor = SlidingWindowStaticWrapper
+        return wrap_constructor(constructor, batch_size=args.data.batch_size, tvp=args.data.tvp, ddr=args.rates.ddr,
+                                window_size=args.data.window_size, stride=args.data.stride)
+    elif args.data.iteration == "accumulating_window":
+        constructor = AccumulatingWindowStaticWrapper
+        return wrap_constructor(constructor, batch_size=args.data.batch_size, tvp=args.data.tvp, ddr=args.rates.ddr,
+                                window_size=args.data.window_size, stride=args.data.stride)
+    elif args.data.temporal:
         if args.model.type in TRADITIONAL_ML_MODEL_TYPES or (args.model.type in NN_MODEL_TYPES and args.optim.type == "nn_regular"):
             constructor = TemporalDataWrapper
             return wrap_constructor(constructor, batch_size=args.data.batch_size, include_train=args.update_params.include_train,

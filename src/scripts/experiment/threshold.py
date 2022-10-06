@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from src.utils.typing import Model, Transformer
 from src.utils.metrics import compute_all_rates
@@ -8,7 +9,9 @@ def find_threshold(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired
                    tol: float=0.01) -> float:
     thresholds = np.linspace(0.01, 0.999, 1000)
 
-    if desired_rate != "f1":
+    if desired_rate == "f1_static":
+        return linear_search(y, y_prob, "f1", desired_value, tol, thresholds)
+    elif desired_rate != "f1":
         return binary_search(y, y_prob, desired_rate, desired_value, tol, thresholds)
     else:
         return linear_search(y, y_prob, desired_rate, desired_value, tol, thresholds)
@@ -86,7 +89,9 @@ def refit_threshold(model: Model, data_wrapper, ddv: float, scaler: Transformer,
             valid_prob = model.predict_proba(scaler.transform(all_thresh_x))
 
             prev_threshold = model.threshold
-            new_threshold = find_threshold(all_thresh_y, valid_prob, ddr, ddv)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                new_threshold = find_threshold(all_thresh_y, valid_prob, ddr, ddv)
 
             if new_threshold is None:
                 return prev_threshold
