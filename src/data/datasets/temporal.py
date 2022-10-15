@@ -28,6 +28,9 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
         unique_years = None
         years = None
 
+    x_df = data["X"]
+    y_df = data["X"]
+
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
 
@@ -35,6 +38,10 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
     x = np.delete(x, nan_idx, 0)
     y = np.delete(y, nan_idx, 0)
     years = np.delete(years, nan_idx, 0)
+
+    x_df = x_df.drop(nan_idx)
+    x_df = x_df.drop(columns=["year"])
+    y_df = y_df.drop(nan_idx)
 
     if year_idx is not None:
         x = np.delete(x, year_idx, 1)
@@ -64,8 +71,6 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
             x_copy, y_copy = np.delete(x_copy, del_idx, 0), np.delete(y_copy, del_idx, 0)
             years_copy = np.delete(years_copy, del_idx, 0)
 
-
-
         train_idx = years_copy <= tyl
         x_train, y_train = x_copy[train_idx], y_copy[train_idx]
         x_rest, y_rest = x_copy[~train_idx], y_copy[~train_idx]
@@ -74,9 +79,27 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
 
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=n_val, stratify=y_train)
 
-        data = {"x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
+        data = {"x_df": x_df, "x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
                 "x_rest": x_rest, "y_rest": y_rest, "years_rest": years_rest}
 
         return data, normalize_cols
 
     return wrapped
+
+
+def generate_image_dataset_temporal(fn: Callable, balanced: bool=False, tyl: int=None):
+    data = fn()
+
+    train_indices = np.where(data.csv["StudyDate_DICOM"] % 100000 < tyl)
+    rest_indices = np.where(data.csv["StudyDate_DICOM"] >= tyl)
+
+    train_data = copy.deepcopy(data)
+    rest_data = copy.deepcopy(data)
+
+    train_data.csv = train_data.csv.iloc[train_indices]
+    train_data.labels = train_data.labels.iloc[train_indices]
+
+    rest_data.csv = rest_data.csv.iloc[rest_indices]
+    rest_data.labels = rest_data.labels.iloc[rest_indices]
+
+    return

@@ -23,8 +23,11 @@ def fast_auc(y_true: np.ndarray, y_prob: np.ndarray) -> float:
         nfalse += (1 - y_i)
         auc += y_i * nfalse
 
-    auc /= (nfalse * (n - nfalse))
-    return auc
+    if (nfalse * (n - nfalse)) == 0:
+        return 0.0
+    else:
+        auc /= (nfalse * (n - nfalse))
+        return auc
 
 
 def eval_model(y: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float, float, float]:
@@ -57,7 +60,11 @@ def precision_score(y: np.ndarray, y_pred: np.ndarray) -> float:
 def recall_score(y: np.ndarray, y_pred: np.ndarray) -> float:
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
 
-    return tp / (tp + fn)
+    if tp + fn > 0:
+        return tp / (tp + fn)
+    else:
+        return 0.0
+
 
 
 def f1_score(y: np.ndarray, y_pred: np.ndarray) -> float:
@@ -75,7 +82,15 @@ def f1_score(y: np.ndarray, y_pred: np.ndarray) -> float:
 def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, initial: bool=False) -> Dict[str, float]:
     samples = float(len(y))
     tn, fp, fn, tp = confusion_matrix_custom(y, y_pred)
-    tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), fn / (tp + fn), tp / (tp + fn)
+
+    if tn + fp == 0 and tp + fn > 0:
+        tnr, fpr, fnr, tpr = 0.0, 0.0, fn / (tp + fn), tp / (tp + fn)
+    elif tn + fp > 0 and tp + fn == 0:
+        tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), 0.0, 0.0
+    elif tn + fp == 0 and tp + fn == 0:
+        tnr, fpr, fnr, tpr = 0.0, 0.0, 0.0, 0.0
+    else:
+        tnr, fpr, fnr, tpr = tn / (tn + fp), fp / (fp + tn), fn / (tp + fn), tp / (tp + fn)
 
     precision = precision_score(y, y_pred)
     if y_prob.shape[1] > 1:
@@ -103,10 +118,11 @@ def compute_all_rates(y: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, ini
     total_samples = len(y)
 
     youden = balanced_accuracy_score(y, y_pred)
+    label_prop = y.mean()
 
     rates = {"tnr": tnr, "fpr": fpr, "fnr": fnr, "tpr": tpr, "precision": precision, "recall": recall, "f1": f1,
              "auc": auc, "aupr": aupr, "loss": None, "fp_conf": fp_conf, "pos_conf": pos_conf, "fp_count": fp_count,
-             "total_samples": total_samples, "acc": acc, "detection": None, "youden": youden}
+             "total_samples": total_samples, "acc": acc, "detection": None, "youden": youden, "label_prop": label_prop}
 
     return rates
 
@@ -163,17 +179,25 @@ class RateTracker():
 
 class PredictionTracker():
     def __init__(self):
-        self._predictions = {"y": [], "prob": [], "pred": [], "update_num": [], "threshold": []}
+        self._predictions = {"x": [], "y": [], "prob": [], "pred": [], "update_num": [], "threshold": []}
 
     def get_predictions(self):
         return self._predictions
 
-    def update_predictions(self, y, pred, prob, update_num, threshold):
-        self._predictions["prob"] += list(prob)
-        self._predictions["pred"] += list(pred)
-        self._predictions["y"] += list(y)
-        self._predictions["update_num"] += [update_num] * len(y)
-        self._predictions["threshold"] += [threshold] * len(y)
+    # def update_predictions(self, x, y, pred, prob, update_num, threshold):
+    #     self._predictions["prob"] += list(prob)
+    #     self._predictions["pred"] += list(pred)
+    #     self._predictions["x"].append(x)
+    #     self._predictions["y"] += list(y)
+    #     self._predictions["update_num"] += [update_num] * len(y)
+    #     self._predictions["threshold"] += [threshold] * len(y)
+    def update_predictions(self, x, y, pred, prob, update_num, threshold):
+        self._predictions["prob"].append(prob)
+        self._predictions["pred"].append(pred)
+        self._predictions["x"].append(x)
+        self._predictions["y"].append(y)
+        self._predictions["update_num"].append([update_num] * len(y))
+        self._predictions["threshold"].append([threshold] * len(y))
 
 
 def create_empty_rates() -> Dict[str, List]:

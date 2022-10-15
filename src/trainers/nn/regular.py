@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import torch
 from torch.nn import functional as F
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 from src.utils.optimizer import create_optimizer
 from .utils import compute_loss, log_regular_losses

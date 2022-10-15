@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from src.utils.metrics import RateTracker, PredictionTracker
 from src.utils.metrics import create_empty_rates, create_empty_predictions
@@ -14,6 +15,8 @@ from typing import Dict, Callable, List, Optional
 def get_dyanmic_desired_value(ddr: str, rates: Dict[str, List[float]]) -> Optional[float]:
     if ddr is not None and ddr == "f1":
         return 1.0
+    elif ddr is not None and ddr == "f1_static":
+        return rates["f1"][0]
     elif ddr is not None:
         return rates[ddr][0]
 
@@ -51,7 +54,9 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         y_prob = model.predict_proba(scaler.transform(x_thresh))
 
         if idr is not None:
-            model.threshold = find_threshold(y_thresh, y_prob, idr, idv)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                model.threshold = find_threshold(y_thresh, y_prob, idr, idv)
         else:
             model.threshold = 0.5
 
@@ -63,7 +68,7 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         rate_tracker.update_rates(y_eval, y_pred, y_prob)
 
         prediction_tracker = PredictionTracker()
-        prediction_tracker.update_predictions(y_eval, y_pred.astype(int), y_prob[:, 1], 0, model.threshold)
+        prediction_tracker.update_predictions(x_eval, y_eval, y_pred.astype(int), y_prob[:, 1], 0, model.threshold)
 
         ddv = get_dyanmic_desired_value(data_wrapper.get_ddr(), rate_tracker.get_rates())
 

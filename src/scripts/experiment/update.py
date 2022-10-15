@@ -82,6 +82,23 @@ def compute_model_pred(new_model, scaler, x, y):
     return model_pred, model_prob
 
 
+# def track_performance(model: Model, rate_tracker, prediction_tracker,
+#                       x_eval: np.ndarray, y_eval: np.ndarray, scaler: Transformer, update_num):
+#     if model.threshold is None:
+#         eval_prob = model.predict_proba(scaler.transform(x_eval))
+#         eval_pred = model.predict(scaler.transform(x_eval))
+#     else:
+#         eval_prob = model.predict_proba(scaler.transform(x_eval))
+#
+#         if eval_prob.shape[1] > 1:
+#             eval_pred = eval_prob[:, 1] >= model.threshold
+#         else:
+#             eval_pred = eval_prob[:, 0] >= model.threshold
+#
+#     rate_tracker.update_rates(y_eval, eval_pred, eval_prob)
+#     prediction_tracker.update_predictions(y_eval, eval_pred.astype(int), eval_prob[:, 1], update_num, model.threshold)
+
+
 def track_performance(model: Model, rate_tracker, prediction_tracker,
                       x_eval: np.ndarray, y_eval: np.ndarray, scaler: Transformer, update_num):
     if model.threshold is None:
@@ -96,7 +113,7 @@ def track_performance(model: Model, rate_tracker, prediction_tracker,
             eval_pred = eval_prob[:, 0] >= model.threshold
 
     rate_tracker.update_rates(y_eval, eval_pred, eval_prob)
-    prediction_tracker.update_predictions(y_eval, eval_pred.astype(int), eval_prob[:, 1], update_num, model.threshold)
+    prediction_tracker.update_predictions(x_eval, y_eval, eval_pred.astype(int), eval_prob[:, 1], update_num, model.threshold)
 
 
 def refit_scaler(scaler: Transformer, data_wrapper, update: bool):
