@@ -55,8 +55,9 @@ def generate_compas_dataset(noise):
             index = dummy_x.columns.get_loc(numeric_col)
             numeric_col_indices.append(index)
 
+        x_df = dummy_x
         x = dummy_x.to_numpy()
-        y = pd.factorize(y)[0]
+        y = pd.factorize(y, sort=True)[0]
 
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=n_val + n_update + n_test)
         x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=n_update + n_test)
@@ -73,7 +74,7 @@ def generate_compas_dataset(noise):
         if noise.future > 0.0:
             y_update = corrupt_labels(y_update, noise.future)
 
-        data = {"x_train": x_train, "y_train_clean": y_train, "y_train": y_train_corrupt,
+        data = {"x_df": x_df, "x_train": x_train, "y_train_clean": y_train, "y_train": y_train_corrupt,
                 "x_val": x_val, "y_val": y_val, "x_update": x_update, "y_update": y_update,
                 "x_test": x_test, "y_test": y_test}
 
