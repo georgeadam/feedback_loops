@@ -1,0 +1,7 @@
+agg_data: True
+feedback: uniform_noise
+include_train: True
+do_update: True
+warm_start: False
+type: uniform_noise
+noise: 0.0

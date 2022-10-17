@@ -1,6 +1,7 @@
 from .bias_oscillation import BiasOscillation
 from .error_amplification import ErrorAmplification
 from .identity import Identity
+from .uniform_noise import UniformNoise
 
 from omegaconf import DictConfig
 
@@ -12,3 +13,5 @@ def get_corruptor(args: DictConfig):
         return BiasOscillation(args.update_params.corruption_prob)
     elif args.update_params.feedback == "none":
         return Identity()
+    elif args.update_params.feedback == "uniform_noise":
+        return UniformNoise(args.update_params.noise)
