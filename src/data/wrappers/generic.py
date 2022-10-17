@@ -12,6 +12,8 @@ class DataWrapper:
         self._tvp = tvp
         self._agg_data = agg_data
 
+        self.x_df = None
+
         self._x_train = None
         self._y_train = None
 
@@ -359,6 +361,9 @@ class StaticUpdateDataGenerator():
 class StaticDataWrapper(DataWrapper):
     def __init__(self, data, batch_size, include_train, ddp, ddr, tvp, agg_data, num_updates):
         super().__init__(batch_size, include_train, ddp, ddr, tvp, agg_data)
+        if "x_df" in data.keys():
+            self.x_df = data["x_df"]
+
         self._x_train = data["x_train"]
         self._y_train = data["y_train"]
 
@@ -405,6 +410,9 @@ class TemporalUpdateDataGenerator():
 class TemporalDataWrapper(DataWrapper):
     def __init__(self, data, batch_size, include_train, ddp, ddr, tvp, agg_data, tyl, uyl, next_year):
         super().__init__(batch_size, include_train, ddp, ddr, tvp, agg_data)
+        if "x_df" in data.keys():
+            self.x_df = data["x_df"]
+
         self._x_train = data["x_train"]
         self._y_train = data["y_train"]
 
@@ -439,6 +447,12 @@ class TemporalDataWrapper(DataWrapper):
         x_eval, y_eval = self._x_rest[eval_idx], self._y_rest[eval_idx]
 
         return x_eval, y_eval
+
+
+
+
+
+
 
 
 class DataMiniBatcher():

@@ -20,12 +20,17 @@ def generate_real_dataset_static(fn: Callable, path: str=None, balanced: bool=Fa
             # This assumes that the year column is the first column in the dataframe
                 normalize_cols.append(i - 1)
 
+    x_df = data["X"]
+
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
 
     nan_idx = np.where(np.isnan(x))[0]
     x = np.delete(x, nan_idx, 0)
     y = np.delete(y, nan_idx, 0)
+
+    x_df = x_df.drop(nan_idx)
+    x_df = x_df.drop(columns=["year"])
 
     if year_idx is not None:
         x = np.delete(x, year_idx, 1)
@@ -57,7 +62,7 @@ def generate_real_dataset_static(fn: Callable, path: str=None, balanced: bool=Fa
         x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=n_update + n_test, stratify=y_test)
         x_update, x_test, y_update, y_test = train_test_split(x_test, y_test, test_size=n_test, stratify=y_test)
 
-        data = {"x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
+        data = {"x_df": x_df, "x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
                 "x_update": x_update, "y_update": y_update, "x_test": x_test, "y_test": y_test}
 
         return data, normalize_cols

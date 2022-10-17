@@ -29,7 +29,6 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
         years = None
 
     x_df = data["X"]
-    y_df = data["X"]
 
     x = data["X"].to_numpy()
     y = data["y"].to_numpy()
@@ -41,7 +40,6 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
 
     x_df = x_df.drop(nan_idx)
     x_df = x_df.drop(columns=["year"])
-    y_df = y_df.drop(nan_idx)
 
     if year_idx is not None:
         x = np.delete(x, year_idx, 1)
