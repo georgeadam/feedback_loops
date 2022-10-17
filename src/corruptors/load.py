@@ -1,4 +1,5 @@
 from .bias_oscillation import BiasOscillation
+from .biased_noise import BiasedNoise
 from .error_amplification import ErrorAmplification
 from .identity import Identity
 from .uniform_noise import UniformNoise
@@ -15,3 +16,5 @@ def get_corruptor(args: DictConfig):
         return Identity()
     elif args.update_params.feedback == "uniform_noise":
         return UniformNoise(args.update_params.noise)
+    elif args.update_params.feedback == "biased_noise":
+        return BiasedNoise(args.update_params.noise, args.update_params.direction)
