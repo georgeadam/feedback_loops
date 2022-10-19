@@ -1,7 +1,8 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
-
 from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 
@@ -10,7 +11,8 @@ from .utils import corrupt_labels
 
 def generate_compas_dataset(noise):
     def wrapped(n_train: float, n_val: float, n_update: float, n_test: float, *args):
-        compas = fetch_openml("compas-two-years", as_frame=True, return_X_y=True)
+        with warnings.catch_warnings():
+            compas = fetch_openml("compas-two-years", as_frame=True, return_X_y=True)
 
         x, y = compas
         x["y"] = y

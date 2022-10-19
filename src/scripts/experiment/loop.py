@@ -65,10 +65,10 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         y_pred = y_prob[:, 1] > model.threshold
 
         rate_tracker = RateTracker()
-        rate_tracker.update_rates(y_eval, y_pred, y_prob)
+        rate_tracker.update_rates(y_eval, y_pred, y_prob, 0, "eval")
 
         prediction_tracker = PredictionTracker()
-        prediction_tracker.update_predictions(x_eval, y_eval, y_pred.astype(int), y_prob[:, 1], 0, model.threshold)
+        prediction_tracker.update_predictions(x_eval, y_eval, y_pred.astype(int), y_prob[:, 1], 0, model.threshold, "eval")
 
         ddv = get_dyanmic_desired_value(data_wrapper.get_ddr(), rate_tracker.get_rates())
 

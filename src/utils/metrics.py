@@ -157,12 +157,18 @@ def compute_model_fpr(model: Model, x: np.ndarray, y: np.ndarray, scaler: Transf
 
 class RateTracker():
     def __init__(self):
-        self._rates = {}
+        self._rates = {"update_num": [], "partition": []}
 
-    def get_rates(self):
-        return self._rates
+    def get_rates(self, index=None):
+        if index is not None:
+            subset_rates = self._rates
+            subset_rates = {key: value[index] for key, value in subset_rates.items()}
 
-    def update_rates(self, y, pred, prob):
+            return subset_rates
+        else:
+            return self._rates
+
+    def update_rates(self, y, pred, prob, update_num, partition):
         new_rates = compute_all_rates(y, pred, prob)
 
         for key, value in new_rates.items():
@@ -170,6 +176,9 @@ class RateTracker():
                 self._rates[key].append(value)
             else:
                 self._rates[key] = [value]
+
+        self._rates["update_num"].append(update_num)
+        self._rates["partition"].append(partition)
 
     def update_detection(self, y_train, y_update):
         p = detect_feedback_loop(y_train, y_update)
@@ -179,10 +188,17 @@ class RateTracker():
 
 class PredictionTracker():
     def __init__(self):
-        self._predictions = {"x": [], "y": [], "prob": [], "pred": [], "update_num": [], "threshold": []}
+        self._predictions = {"x": [], "y": [], "prob": [], "pred": [],
+                             "update_num": [], "threshold": [], "partition": []}
 
-    def get_predictions(self):
-        return self._predictions
+    def get_predictions(self, index=None):
+        if index is not None:
+            subset_predictions = self._predictions
+            subset_predictions = {key: value[index] for key, value in subset_predictions.items()}
+
+            return subset_predictions
+        else:
+            return self._predictions
 
     # def update_predictions(self, x, y, pred, prob, update_num, threshold):
     #     self._predictions["prob"] += list(prob)
@@ -191,20 +207,21 @@ class PredictionTracker():
     #     self._predictions["y"] += list(y)
     #     self._predictions["update_num"] += [update_num] * len(y)
     #     self._predictions["threshold"] += [threshold] * len(y)
-    def update_predictions(self, x, y, pred, prob, update_num, threshold):
+    def update_predictions(self, x, y, pred, prob, update_num, threshold, partition):
         self._predictions["prob"].append(prob)
         self._predictions["pred"].append(pred)
         self._predictions["x"].append(x)
         self._predictions["y"].append(y)
         self._predictions["update_num"].append([update_num] * len(y))
         self._predictions["threshold"].append([threshold] * len(y))
+        self._predictions["partition"].append([partition] * len(y))
 
 
 def create_empty_rates() -> Dict[str, List]:
     return {"fpr": [], "tpr": [], "fnr": [], "tnr": [], "precision": [], "recall": [], "f1": [], "auc": [],
             "loss": [], "aupr": [], "fp_conf": [], "pos_conf": [], "fp_count": [], "total_samples": [],
-            "fp_prop": [], "acc": [], "detection": [], "seed": [], "youden": []}
+            "fp_prop": [], "acc": [], "detection": [], "seed": [], "youden": [], "label_prop": [], "update_num": [], "partition": []}
 
 
 def create_empty_predictions() -> Dict[str, List]:
-    return {"y": [],"prob": [], "pred": [], "update_num": [], "threshold": [], "seed": []}
+    return {"x": [], "y": [],"prob": [], "pred": [], "update_num": [], "threshold": [], "seed": [], "partition": []}
