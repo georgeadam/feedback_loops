@@ -4,7 +4,7 @@ ipynb_checkpoints
 __pycache__
 *.out
 slurm/
-data/
+/data/
 *.csv
 *.pdf
 *.ipynb

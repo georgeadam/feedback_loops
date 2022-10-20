@@ -11,6 +11,7 @@ from .datasets import generate_real_dataset_temporal
 from .datasets import generate_adult_dataset
 from .datasets import generate_credit_g_dataset
 from .datasets import generate_compas_dataset
+from .datasets import generate_mnist_dataset
 
 from .wrappers import StaticDataWrapper
 from .wrappers import TemporalDataWrapper
@@ -74,6 +75,8 @@ def get_data_fn(args: DictConfig) -> DataFn:
         return generate_credit_g_dataset(args.data.noise)
     elif args.data.type == "compas":
         return generate_compas_dataset(args.data.noise)
+    elif args.data.type == "mnist":
+        return generate_mnist_dataset(args.data.noise)
     elif args.data.type == "padchest":
         if args.data.temporal:
             return generate_image_dataset_temporal(load_padchest_data,
