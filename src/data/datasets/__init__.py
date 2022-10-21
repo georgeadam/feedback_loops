@@ -13,6 +13,7 @@ from .adult import generate_adult_dataset
 from .credit_g import generate_credit_g_dataset
 from .compas import generate_compas_dataset
 from .mnist import generate_mnist_dataset
+from .spambase import generate_spambase_dataset
 
-STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2", "sklearn_noisy_update", "moons_noisy_update", "compas", "adult", "credit", "mnist"]
+STATIC_DATA_TYPES = ["gaussian", "sklearn", "moons", "mimic_iii", "support2", "sklearn_noisy_update", "moons_noisy_update", "compas", "adult", "credit", "mnist", "spambase"]
 TEMPORAL_DATA_TYPES = ["mimic_iv", "mimic_iv_12h", "mimic_iv_24h"]
