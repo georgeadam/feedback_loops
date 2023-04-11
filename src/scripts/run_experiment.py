@@ -29,18 +29,16 @@ def main(args: DictConfig):
 
     rate_formatting_fn = get_rate_formatting_fn(args.data.temporal)
     prediction_formatting_fn = get_prediction_formatting_fn(args.data.temporal)
-    rates = {}
-    predictions = {}
 
-    temp_rates, temp_predictions, _ = call_experiment_loop(args, data_fn, data_wrapper_fn, model_fn, trainer, update_fn)
-    rates[args.update_params.type] = temp_rates
-    predictions[args.update_params.type] = temp_predictions
-    metrics = rate_formatting_fn(rates, args.data.tyl, args.data.uyl)
-    predictions = prediction_formatting_fn(predictions, args.data.tyl, args.data.uyl)
+    rates, predictions, _ = call_experiment_loop(args, data_fn, data_wrapper_fn, model_fn, trainer, update_fn)
+    rates = rate_formatting_fn(rates)
+    rates["update_type"] = args.update_params.type
+    predictions = prediction_formatting_fn(predictions)
+    predictions["update_type"] = args.update_params.type
 
     if args.misc.save_rates:
         rate_file_name = RATE_FILE
-        metrics.to_csv(rate_file_name, index=False, header=True)
+        rates.to_csv(rate_file_name, index=False, header=True)
 
     if args.misc.save_predictions:
         prediction_file_name = PREDICTION_FILE

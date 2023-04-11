@@ -76,20 +76,18 @@ def experiment_loop(data_fn: DataFn=None, data_wrapper_fn=None, model_fn: ModelF
         model = update_fn(model, data_wrapper, rate_tracker, prediction_tracker, trainer=trainer,
                           ddv=ddv, scaler=scaler)
         temp_rates = rate_tracker.get_rates()
+        temp_rates["seed"] = [seed] * len(temp_rates[list(temp_rates.keys())[0]])
         temp_predictions = prediction_tracker.get_predictions()
+        temp_predictions["seed"] = [seed] * len(temp_predictions[list(temp_predictions.keys())[0]])
 
         if return_model:
             models.append(model.to("cpu"))
 
         for key in temp_rates.keys():
-            rates[key].append(temp_rates[key])
-
-        rates["seed"] += [[seed] * len(temp_rates[list(temp_rates.keys())[0]])]
+            rates[key] += temp_rates[key]
 
         for key in temp_predictions.keys():
-            predictions[key].append(temp_predictions[key])
-
-        predictions["seed"] += [[seed] * len(temp_predictions[list(temp_predictions.keys())[0]])]
+            predictions[key] += temp_predictions[key]
 
     return rates, predictions, models
 

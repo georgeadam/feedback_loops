@@ -355,7 +355,7 @@ class StaticUpdateDataGenerator():
             idx_start = int(self.update_size * i)
             idx_end = int(self.update_size * (i + 1))
 
-            yield self.x[idx_start: idx_end], self.y[idx_start: idx_end]
+            yield i + 1, self.x[idx_start: idx_end], self.y[idx_start: idx_end]
 
 
 class StaticDataWrapper(DataWrapper):
@@ -404,7 +404,7 @@ class TemporalUpdateDataGenerator():
         for year in range(self._tyl + 1, self._uyl):
             update_idx = self._years == year
 
-            yield self._x[update_idx], self._y[update_idx]
+            yield year, self._x[update_idx], self._y[update_idx]
 
 
 class TemporalDataWrapper(DataWrapper):

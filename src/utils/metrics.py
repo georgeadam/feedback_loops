@@ -1,12 +1,12 @@
-from numba import jit
-import numpy as np
-import pandas as pd
-from sklearn.metrics import confusion_matrix, roc_auc_score, average_precision_score, balanced_accuracy_score
+import itertools
 
-from typing import List, Dict, Tuple, SupportsFloat
+import numpy as np
+from numba import jit
+from sklearn.metrics import average_precision_score, balanced_accuracy_score
 
 from src.utils.detection import detect_feedback_loop
 from src.utils.typing import Model, Transformer
+from typing import Dict, List, Tuple
 
 
 @jit
@@ -188,7 +188,7 @@ class RateTracker():
 
 class PredictionTracker():
     def __init__(self):
-        self._predictions = {"x": [], "y": [], "prob": [], "pred": [],
+        self._predictions = {"y": [], "prob": [], "pred": [],
                              "update_num": [], "threshold": [], "partition": []}
 
     def get_predictions(self, index=None):
@@ -198,19 +198,25 @@ class PredictionTracker():
 
             return subset_predictions
         else:
-            return self._predictions
+            predictions = {}
+
+            for key in self._predictions.keys():
+                if key in ["prob", "pred", "y"]:
+                    predictions[key] = list(np.concatenate(self._predictions[key]))
+                else:
+                    predictions[key] = list(itertools.chain.from_iterable(self._predictions[key]))
+
+            return predictions
 
     # def update_predictions(self, x, y, pred, prob, update_num, threshold):
     #     self._predictions["prob"] += list(prob)
     #     self._predictions["pred"] += list(pred)
-    #     self._predictions["x"].append(x)
     #     self._predictions["y"] += list(y)
     #     self._predictions["update_num"] += [update_num] * len(y)
     #     self._predictions["threshold"] += [threshold] * len(y)
     def update_predictions(self, x, y, pred, prob, update_num, threshold, partition):
         self._predictions["prob"].append(prob)
         self._predictions["pred"].append(pred)
-        self._predictions["x"].append(x)
         self._predictions["y"].append(y)
         self._predictions["update_num"].append([update_num] * len(y))
         self._predictions["threshold"].append([threshold] * len(y))
@@ -224,4 +230,4 @@ def create_empty_rates() -> Dict[str, List]:
 
 
 def create_empty_predictions() -> Dict[str, List]:
-    return {"x": [], "y": [],"prob": [], "pred": [], "update_num": [], "threshold": [], "seed": [], "partition": []}
+    return {"y": [],"prob": [], "pred": [], "update_num": [], "threshold": [], "seed": [], "partition": []}

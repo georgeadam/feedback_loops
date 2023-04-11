@@ -32,7 +32,7 @@ def update_model_general(model, data_wrapper, rate_tracker, prediction_tracker, 
                          update: bool = True,  ddv: Optional[float] = None, scaler: Transformer = None):
     x_train, y_train = data_wrapper.get_train_data()
 
-    for update_num, (x_update, y_update) in enumerate(data_wrapper.get_update_data_generator(), start=1):
+    for update_index, (update_num, x_update, y_update) in enumerate(data_wrapper.get_update_data_generator(), start=1):
         # Create copies of experiment labels so we don't overwrite original data
         y_update = copy.deepcopy(y_update)
         y_update_unmodified = copy.deepcopy(y_update)
@@ -48,7 +48,7 @@ def update_model_general(model, data_wrapper, rate_tracker, prediction_tracker, 
         model = trainer.update_fit(model, data_wrapper, rate_tracker, scaler, update_num)
         model.threshold = refit_threshold(model, data_wrapper, ddv, scaler, update)
 
-        x_eval, y_eval = data_wrapper.get_eval_data(update_num)
+        x_eval, y_eval = data_wrapper.get_eval_data(update_index)
         track_performance(model, rate_tracker, prediction_tracker, x_update, y_update_unmodified, scaler, update_num, "update")
         track_performance(model, rate_tracker, prediction_tracker, x_eval, y_eval, scaler, update_num, "eval")
 
