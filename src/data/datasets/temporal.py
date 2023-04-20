@@ -75,7 +75,10 @@ def generate_real_dataset_temporal(fn: Callable, path: str=None, balanced: bool=
         years_rest = years_copy[~train_idx]
         n_val = int(len(x_train) * n_val)
 
-        x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=n_val, stratify=y_train)
+        if n_val > 0:
+            x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=n_val, stratify=y_train)
+        else:
+            x_train, x_val, y_train, y_val = x_train, np.array([]).reshape(0, x_train.shape[1]).astype("float32"), y_train, np.array([]).astype(int)
 
         data = {"x_df": x_df, "x_train": x_train, "y_train": y_train, "x_val": x_val, "y_val": y_val,
                 "x_rest": x_rest, "y_rest": y_rest, "years_rest": years_rest}

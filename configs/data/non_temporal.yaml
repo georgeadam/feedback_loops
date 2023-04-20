@@ -4,10 +4,10 @@ temporal: False
 normalize: True
 iteration: non_temporal
 # Data splits
-n_train: 100
-n_val: 100
-n_update: 1000
-n_test: 1000
+n_train: 0.1
+n_val: 0.0
+n_update: 0.7
+n_test: 0.2
 noise:
   train: 0.0
   val: 0.0

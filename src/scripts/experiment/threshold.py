@@ -74,9 +74,9 @@ def linear_search(y: np.ndarray, y_prob: np.ndarray, desired_rate: str, desired_
 
 
 def get_direction(rate: str) -> str:
-    if rate == "fpr" or rate == "tnr":
+    if rate == "fpr" or rate == "tpr":
         return "increasing"
-    elif rate == "fnr" or rate == "tpr":
+    elif rate == "fnr" or rate == "tnr":
         return "decreasing"
 
 
